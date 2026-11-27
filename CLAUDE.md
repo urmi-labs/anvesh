@@ -40,10 +40,12 @@ Runs on GitHub Actions free tier. No paid APIs.
 
 ## Status
 Phase 0 done (2026-11-27): telegram.py, state.py, http.py, config.py, check.py, CLI with run / dry-run /
-check-sources / report. 36 tests. 28 sources, 0 failing. Private workflow runs manually and saves state.
+check-sources / report. 28 sources, 0 failing. Private workflow runs manually and saves state.
+Session 10 done (2026-11-27): settings.yaml (http timeout/retries/backoff/Retry-After cap/per-host gap,
+project_url, contact; state.retention_days; google_news.language). Optional file, all defaults in
+config.py Settings; CLI loads it and passes it down. 45 tests.
 
 ## Next
-Session 10: add settings.yaml (HTTP timeout/retries/per-host interval, User-Agent project URL, state
-retention days, Google News language) with today's values as defaults, and wire it in. Then Phase 1:
-RSS adapter -> Signal records, regex funding pre-filter, cross-source dedupe, Telegram digest,
-cron schedule "17 2,7,11,15 * * *". Goal: schedule live before 2026-12-28.
+Phase 1: Session 11 RSS adapter -> Signal records (title, link, publisher, published date, source).
+Then regex funding pre-filter, cross-source dedupe, Telegram digest, cron schedule "17 2,7,11,15 * * *".
+Goal: schedule live before 2026-12-28.
