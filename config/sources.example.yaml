@@ -167,6 +167,7 @@ sources:
     adapter: rss
     url: "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss"
     region: REMOTE
+    notes: "Example category. Swap the URL for the WWR category that matches your role"
 
   - name: hn_jobs
     adapter: json_api

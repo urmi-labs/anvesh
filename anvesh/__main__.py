@@ -23,7 +23,7 @@ COMMANDS = {
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="anvesh",
-        description="Radar for newly funded tech startups and their DevOps/SRE roles.",
+        description="Radar for newly funded tech startups and the roles they are hiring for.",
     )
     parser.add_argument("--version", action="version", version=f"anvesh {__version__}")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
