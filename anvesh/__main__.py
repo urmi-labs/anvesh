@@ -6,6 +6,9 @@ import sys
 import httpx
 
 from anvesh import __version__
+from anvesh.check import run_check
+from anvesh.config import ConfigError, load_sources
+from anvesh.http import Http
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
 
@@ -24,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"anvesh {__version__}")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
+    commands = {}
     for name, help_text in COMMANDS.items():
         cmd = sub.add_parser(name, help=help_text, description=help_text)
         cmd.add_argument(
@@ -36,6 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
             default="state",
             help="folder holding the JSONL state files (default: state)",
         )
+        commands[name] = cmd
+    commands["check-sources"].add_argument(
+        "--all", action="store_true", help="also check sources with enabled: false"
+    )
     return parser
 
 
@@ -65,6 +73,16 @@ def cmd_run(state_dir: str, dry_run: bool) -> int:
     return 0
 
 
+def cmd_check_sources(config_dir: str, include_disabled: bool) -> int:
+    try:
+        config = load_sources(config_dir)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    results = run_check(config, Http(), include_disabled=include_disabled)
+    return 1 if any(r.verdict == "FAIL" for r in results) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -73,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if args.command in ("run", "dry-run"):
         return cmd_run(args.state_dir, dry_run=args.command == "dry-run")
+    if args.command == "check-sources":
+        return cmd_check_sources(args.config, args.all)
     print(f"{args.command}: not implemented yet (config={args.config}, state-dir={args.state_dir})")
     return 0
 

@@ -66,9 +66,11 @@ sources:
     region: GLOBAL
 
   - name: finsmes
-    adapter: rss
-    url: "https://www.finsmes.com/feed"
+    adapter: google_news
+    query: "site:finsmes.com raises"
+    regions: [US]
     region: GLOBAL
+    notes: "Direct feed returns 403 to non-browser clients (checked 2026-11-27); read through Google News"
 
   - name: eu_startups
     adapter: rss
@@ -89,9 +91,11 @@ sources:
     region: GLOBAL
 
   - name: devops_com
-    adapter: rss
-    url: "https://devops.com/feed/"
+    adapter: google_news
+    query: "site:devops.com (raises OR funding OR series)"
+    regions: [US]
     region: GLOBAL
+    notes: "Direct feed returns 403 to non-browser clients (checked 2026-11-27); read through Google News"
 
   - name: the_new_stack
     adapter: rss
@@ -126,8 +130,9 @@ sources:
     url: "https://efts.sec.gov/LATEST/search-index?q=&forms=D"
     region: US
     priority: P2
+    enabled: false
     needs: [RADAR_CONTACT]
-    notes: "SEC requires a User-Agent with contact email, max 10 requests a second"
+    notes: "403 with our User-Agent on 2026-11-27 even with contact set; fix the User-Agent format in Phase 4"
 
   # ---------- Job boards ----------
   - name: remoteok
