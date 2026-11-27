@@ -6,6 +6,7 @@ import sys
 import httpx
 
 from anvesh import __version__
+from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
 
 COMMANDS = {
@@ -38,16 +39,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def cmd_run(dry_run: bool) -> int:
-    message = f"anvesh {__version__} alive"
+def cmd_run(state_dir: str, dry_run: bool) -> int:
+    state = State(state_dir, read_only=dry_run)
+    runs = state.table("runs")
+    previous = max(runs.records, default=None)
+    now = utc_now()
+    runs.upsert(to_iso(now), {"version": __version__, "dry_run": dry_run}, now=now)
+
+    message = (
+        f"anvesh {__version__} alive\n"
+        f"runs recorded: {len(runs)}\n"
+        f"previous run: {previous or 'none (first run)'}"
+    )
     if dry_run:
-        print(f"[dry-run] would send to Telegram: {message}")
+        print(f"[dry-run] would send to Telegram:\n{message}")
         return 0
     try:
         Telegram.from_env().send(message)
     except (TelegramError, httpx.HTTPError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    finally:
+        state.save()
     print("sent alive message to Telegram")
     return 0
 
@@ -59,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
     if args.command in ("run", "dry-run"):
-        return cmd_run(dry_run=args.command == "dry-run")
+        return cmd_run(args.state_dir, dry_run=args.command == "dry-run")
     print(f"{args.command}: not implemented yet (config={args.config}, state-dir={args.state_dir})")
     return 0
 
