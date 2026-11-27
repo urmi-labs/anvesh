@@ -44,8 +44,12 @@ check-sources / report. 28 sources, 0 failing. Private workflow runs manually an
 Session 10 done (2026-11-27): settings.yaml (http timeout/retries/backoff/Retry-After cap/per-host gap,
 project_url, contact; state.retention_days; google_news.language). Optional file, all defaults in
 config.py Settings; CLI loads it and passes it down. 45 tests.
+Session 11 done (2026-11-27): anvesh/signals.py (frozen Signal dataclass), anvesh/adapters/ (fetch()
+dispatcher, base.py SourceError + clean_text, rss.py for rss and google_news via feedparser, ETag 304 -> []).
+Live-checked on inc42, entrackr, finsmes. json_api adapter not built yet. 54 tests.
 
 ## Next
-Phase 1: Session 11 RSS adapter -> Signal records (title, link, publisher, published date, source).
-Then regex funding pre-filter, cross-source dedupe, Telegram digest, cron schedule "17 2,7,11,15 * * *".
-Goal: schedule live before 2026-12-28.
+Session 12: regex funding pre-filter + 24-hour window (published + source.lag_hours; decide how undated
+signals are treated). Keep "X raises $Ym Series A/seed"; drop IPOs, acquisitions, stake sales/block deals,
+layoffs, fund closes. Patterns and window hours live in config with defaults.
+Then: cross-source dedupe, Telegram digest, cron schedule "17 2,7,11,15 * * *". Goal: schedule live before 2026-12-28.
