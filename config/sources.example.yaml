@@ -167,3 +167,15 @@ sources:
     adapter: rss
     url: "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss"
     region: REMOTE
+
+  - name: hn_jobs
+    adapter: json_api
+    url: "https://hn.algolia.com/api/v1/search_by_date?tags=job"
+    region: GLOBAL
+    notes: "Job ads posted directly on Hacker News, mostly by YC startups"
+
+  - name: hn_launches
+    adapter: json_api
+    url: "https://hn.algolia.com/api/v1/search_by_date?query=%22Launch%20HN%22&tags=story&restrictSearchableAttributes=title"
+    region: GLOBAL
+    notes: "YC startups announcing launch, often near their seed round; a funded-no-job-post signal"
