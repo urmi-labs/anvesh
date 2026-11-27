@@ -1,0 +1,164 @@
+# Anvesh sources. Copy this file to your private data repo as sources.yaml.
+#
+# adapter:   rss | json_api | google_news
+# status:    documented = in the provider's docs; verified = checked by hand;
+#            confirm = from memory or a directory, run `anvesh check-sources` before trusting it
+# priority:  P1 goes live first, P2 and P3 later
+# needs:     environment variables (secrets) the source cannot run without
+# lag_hours: the source publishes late, so its 24-hour limit is widened by this much
+#
+# Careful: YAML reads bare words like on, off, yes, no as true/false. Quote them if you mean text.
+
+sources:
+  # ---------- Funding news: India ----------
+  - name: inc42
+    adapter: rss
+    url: "https://inc42.com/feed/"
+    region: IN
+    status: documented
+
+  - name: inc42_buzz
+    adapter: rss
+    url: "https://inc42.com/buzz/feed/"
+    region: IN
+    status: documented
+
+  - name: yourstory
+    adapter: rss
+    url: "https://yourstory.com/feed"
+    region: IN
+    status: documented
+
+  - name: startuptalky
+    adapter: rss
+    url: "https://startuptalky.com/rss/"
+    region: IN
+
+  - name: entrackr
+    adapter: google_news
+    query: "site:entrackr.com (raises OR funding)"
+    regions: [IN]
+    region: IN
+    notes: "Entrackr's own feed URL is not confirmed, so read it through Google News"
+
+  - name: ettech
+    adapter: google_news
+    query: "site:economictimes.indiatimes.com/tech (raises OR funding)"
+    regions: [IN]
+    region: IN
+
+  - name: moneycontrol_startups
+    adapter: google_news
+    query: "site:moneycontrol.com (startup raises OR funding round)"
+    regions: [IN]
+    region: IN
+
+  # ---------- Funding news: global ----------
+  - name: techcrunch
+    adapter: rss
+    url: "https://techcrunch.com/feed/"
+    region: GLOBAL
+    status: documented
+
+  - name: crunchbase_news
+    adapter: rss
+    url: "https://news.crunchbase.com/feed/"
+    region: GLOBAL
+
+  - name: finsmes
+    adapter: rss
+    url: "https://www.finsmes.com/feed"
+    region: GLOBAL
+
+  - name: eu_startups
+    adapter: rss
+    url: "https://www.eu-startups.com/feed/"
+    region: EU
+    status: documented
+
+  - name: silicon_republic
+    adapter: rss
+    url: "https://www.siliconrepublic.com/category/start-ups/feed/"
+    region: EU
+    status: documented
+
+  # ---------- Funding news: infra-focused ----------
+  - name: siliconangle
+    adapter: rss
+    url: "https://siliconangle.com/feed/"
+    region: GLOBAL
+
+  - name: devops_com
+    adapter: rss
+    url: "https://devops.com/feed/"
+    region: GLOBAL
+
+  - name: the_new_stack
+    adapter: rss
+    url: "https://thenewstack.io/feed/"
+    region: GLOBAL
+
+  # ---------- Google News funding search, one feed per region ----------
+  - name: gnews_funding
+    adapter: google_news
+    query: '(raises OR raised OR secures OR bags) (seed OR "pre-series" OR "series a" OR "series b") startup'
+    regions: [IN, US, GB, SG]
+    region: GLOBAL
+    status: documented
+    notes: "Item links are Google redirects; use title and publisher only"
+
+  # ---------- Structured data ----------
+  - name: yc_hiring
+    adapter: json_api
+    url: "https://yc-oss.github.io/api/companies/hiring.json"
+    region: GLOBAL
+    status: documented
+    notes: "Unofficial, rebuilt daily. Diff against yesterday's list"
+
+  - name: hn_whoishiring
+    adapter: json_api
+    url: "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring"
+    region: GLOBAL
+    status: documented
+
+  - name: sec_formd
+    adapter: json_api
+    url: "https://efts.sec.gov/LATEST/search-index?q=&forms=D"
+    region: US
+    priority: P2
+    needs: [RADAR_CONTACT]
+    notes: "SEC requires a User-Agent with contact email, max 10 requests a second"
+
+  # ---------- Job boards ----------
+  - name: remoteok
+    adapter: json_api
+    url: "https://remoteok.com/api"
+    region: REMOTE
+    status: documented
+    lag_hours: 24
+    notes: "Credit Remote OK and link back to each listing"
+
+  - name: jobicy
+    adapter: json_api
+    url: "https://jobicy.com/api/v2/remote-jobs"
+    region: REMOTE
+    min_interval_minutes: 60
+    notes: "At most one check an hour, keep attribution"
+
+  - name: arbeitnow
+    adapter: json_api
+    url: "https://www.arbeitnow.com/api/job-board-api"
+    region: EU
+    status: documented
+    notes: "visa_sponsorship=true parameter reportedly does not filter; detect from text"
+
+  - name: arbeitnow_uk
+    adapter: json_api
+    url: "https://www.arbeitnow.co.uk/api/job-board-api"
+    region: GB
+    status: documented
+
+  - name: wwr_devops
+    adapter: rss
+    url: "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss"
+    region: REMOTE
