@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anvesh"
+version = "0.1.0"
+description = "Free radar for newly funded tech startups and their DevOps/SRE roles, with Telegram alerts"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Aditya Pradhan" }]
+dependencies = []
+
+[project.scripts]
+anvesh = "anvesh.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["anvesh*"]
