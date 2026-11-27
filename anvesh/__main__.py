@@ -3,7 +3,10 @@
 import argparse
 import sys
 
+import httpx
+
 from anvesh import __version__
+from anvesh.telegram import Telegram, TelegramError
 
 COMMANDS = {
     "run": "fetch sources, filter, score, send alerts and save state",
@@ -35,12 +38,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def cmd_run(dry_run: bool) -> int:
+    message = f"anvesh {__version__} alive"
+    if dry_run:
+        print(f"[dry-run] would send to Telegram: {message}")
+        return 0
+    try:
+        Telegram.from_env().send(message)
+    except (TelegramError, httpx.HTTPError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print("sent alive message to Telegram")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command is None:
         parser.print_help()
         return 1
+    if args.command in ("run", "dry-run"):
+        return cmd_run(dry_run=args.command == "dry-run")
     print(f"{args.command}: not implemented yet (config={args.config}, state-dir={args.state_dir})")
     return 0
 
