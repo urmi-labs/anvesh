@@ -58,12 +58,12 @@ def judge(source: Source, response: httpx.Response) -> tuple[str, int | None, st
     return "OK", items, ""
 
 
-def check_source(source: Source, http: Http) -> list[Result]:
+def check_source(source: Source, http: Http, language: str = "en") -> list[Result]:
     missing = [name for name in source.needs if not os.environ.get(name)]
     if missing:
         return [Result(source.name, source.adapter, "SKIP", reason=f"needs {', '.join(missing)}")]
     results = []
-    for label, url, params in source.requests():
+    for label, url, params in source.requests(language):
         started = time.monotonic()
         try:
             response = http.get(url, params=params)
@@ -87,11 +87,13 @@ def format_result(r: Result) -> str:
     return f"{line}  {r.reason}" if r.reason else line
 
 
-def run_check(config: SourcesConfig, http: Http, include_disabled: bool = False, echo=print) -> list[Result]:
+def run_check(
+    config: SourcesConfig, http: Http, include_disabled: bool = False, echo=print, language: str = "en"
+) -> list[Result]:
     sources = config.sources if include_disabled else config.enabled()
     results = []
     for source in sources:
-        for result in check_source(source, http):
+        for result in check_source(source, http, language):
             echo(format_result(result))
             results.append(result)
     counts = {v: sum(r.verdict == v for r in results) for v in ("OK", "WARN", "FAIL", "SKIP")}

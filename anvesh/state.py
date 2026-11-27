@@ -6,7 +6,9 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-PRUNE_DAYS = 120  # records not seen for this long are deleted
+from anvesh.config import StateSettings
+
+PRUNE_DAYS = StateSettings().retention_days  # default only; settings.yaml state.retention_days overrides
 
 
 def utc_now() -> datetime:

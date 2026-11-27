@@ -1,0 +1,18 @@
+# Anvesh settings. Copy this file to your private data repo as settings.yaml.
+# Every value below is the default, so you only need to keep the lines you change.
+# A missing or empty settings.yaml means "use all defaults".
+
+http:
+  timeout_seconds: 15              # give up on a request after this long
+  retries: 2                       # extra attempts after the first one fails
+  backoff_seconds: [2, 5]          # wait before retry 1, retry 2, ... (need one value per retry)
+  max_retry_after_seconds: 30      # never wait longer than this when a server says Retry-After
+  min_interval_per_host_seconds: 1.0   # politeness gap between two requests to the same site
+  project_url: "https://github.com/urmi-labs/anvesh"   # shown in the User-Agent; forks set their own
+  contact: ""                      # email shown in the User-Agent; empty = use the RADAR_CONTACT env var
+
+state:
+  retention_days: 120              # forget records not seen for this many days
+
+google_news:
+  language: en                     # interface language for google_news sources (en, de, hi, ...)

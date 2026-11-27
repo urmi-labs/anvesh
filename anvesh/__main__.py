@@ -7,7 +7,7 @@ import httpx
 
 from anvesh import __version__
 from anvesh.check import run_check
-from anvesh.config import ConfigError, load_sources
+from anvesh.config import ConfigError, load_settings, load_sources
 from anvesh.http import Http
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument(
             "--config",
             default=".",
-            help="folder with profile.yaml, sources.yaml and scoring.yaml (default: .)",
+            help="folder with settings.yaml, sources.yaml and other config files (default: .)",
         )
         cmd.add_argument(
             "--state-dir",
@@ -47,7 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def cmd_run(state_dir: str, dry_run: bool) -> int:
+def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
+    try:
+        settings = load_settings(config_dir)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     state = State(state_dir, read_only=dry_run)
     runs = state.table("runs")
     previous = max(runs.records, default=None)
@@ -68,18 +73,22 @@ def cmd_run(state_dir: str, dry_run: bool) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     finally:
-        state.save()
+        state.save(settings.state.retention_days)
     print("sent alive message to Telegram")
     return 0
 
 
 def cmd_check_sources(config_dir: str, include_disabled: bool) -> int:
     try:
+        settings = load_settings(config_dir)
         config = load_sources(config_dir)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    results = run_check(config, Http(), include_disabled=include_disabled)
+    http = Http(settings=settings.http)
+    results = run_check(
+        config, http, include_disabled=include_disabled, language=settings.google_news.language
+    )
     return 1 if any(r.verdict == "FAIL" for r in results) else 0
 
 
@@ -90,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
     if args.command in ("run", "dry-run"):
-        return cmd_run(args.state_dir, dry_run=args.command == "dry-run")
+        return cmd_run(args.config, args.state_dir, dry_run=args.command == "dry-run")
     if args.command == "check-sources":
         return cmd_check_sources(args.config, args.all)
     print(f"{args.command}: not implemented yet (config={args.config}, state-dir={args.state_dir})")

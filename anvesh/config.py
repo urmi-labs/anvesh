@@ -40,8 +40,11 @@ class Source(BaseModel):
             raise ValueError(f"{self.adapter} sources need a url")
         return self
 
-    def requests(self) -> list[tuple[str, str, dict | None]]:
-        """Every request this source makes: (label, url, params)."""
+    def requests(self, language: str = "en") -> list[tuple[str, str, dict | None]]:
+        """Every request this source makes: (label, url, params).
+
+        `language` is the Google News interface language (settings.yaml: google_news.language).
+        """
         if self.adapter != "google_news":
             return [(self.name, self.url, None)]
         return [
@@ -50,9 +53,9 @@ class Source(BaseModel):
                 GOOGLE_NEWS_URL,
                 {
                     "q": f"{self.query} when:{self.window}",
-                    "hl": f"en-{region}",
+                    "hl": f"{language}-{region}",
                     "gl": region,
-                    "ceid": f"{region}:en",
+                    "ceid": f"{region}:{language}",
                 },
             )
             for region in self.regions
@@ -77,6 +80,51 @@ class SourcesConfig(BaseModel):
         return [s for s in self.sources if s.enabled]
 
 
+class HttpSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    timeout_seconds: float = Field(15, gt=0)
+    retries: int = Field(2, ge=0, le=5)  # extra attempts after the first one
+    backoff_seconds: list[float] = [2, 5]  # wait before retry 1, retry 2, ...
+    max_retry_after_seconds: float = Field(30, ge=0)  # cap on a server's Retry-After
+    min_interval_per_host_seconds: float = Field(1.0, ge=0)  # politeness gap per host
+    project_url: str = "https://github.com/urmi-labs/anvesh"  # shown in the User-Agent
+    contact: str = ""  # email in the User-Agent; RADAR_CONTACT env var is used if empty
+
+    @model_validator(mode="after")
+    def enough_backoffs(self) -> "HttpSettings":
+        if len(self.backoff_seconds) < self.retries:
+            raise ValueError(
+                f"backoff_seconds needs at least {self.retries} values (one per retry), "
+                f"got {len(self.backoff_seconds)}"
+            )
+        if any(b < 0 for b in self.backoff_seconds):
+            raise ValueError("backoff_seconds values cannot be negative")
+        return self
+
+
+class StateSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    retention_days: int = Field(120, ge=1)  # records not seen for this long are deleted
+
+
+class GoogleNewsSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: str = Field("en", pattern=r"^[a-z]{2,3}$")  # e.g. en, de, hi
+
+
+class Settings(BaseModel):
+    """settings.yaml: how Anvesh behaves. Every field has a default, so the file is optional."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    http: HttpSettings = Field(default_factory=HttpSettings)
+    state: StateSettings = Field(default_factory=StateSettings)
+    google_news: GoogleNewsSettings = Field(default_factory=GoogleNewsSettings)
+
+
 def _read_yaml(path: Path) -> dict:
     if not path.exists():
         raise ConfigError(f"{path} not found")
@@ -84,6 +132,8 @@ def _read_yaml(path: Path) -> dict:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path.name} is not valid YAML: {exc}") from exc
+    if data is None:  # empty file, or only comments
+        data = {}
     if not isinstance(data, dict):
         raise ConfigError(f"{path.name} must be a mapping at the top level")
     return data
@@ -101,5 +151,16 @@ def load_sources(config_dir: str | Path) -> SourcesConfig:
     path = Path(config_dir) / "sources.yaml"
     try:
         return SourcesConfig.model_validate(_read_yaml(path))
+    except ValidationError as exc:
+        raise ConfigError(_format_errors(path.name, exc)) from exc
+
+
+def load_settings(config_dir: str | Path) -> Settings:
+    """Read settings.yaml if it exists. A missing file means "use every default"."""
+    path = Path(config_dir) / "settings.yaml"
+    if not path.exists():
+        return Settings()
+    try:
+        return Settings.model_validate(_read_yaml(path))
     except ValidationError as exc:
         raise ConfigError(_format_errors(path.name, exc)) from exc

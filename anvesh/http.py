@@ -11,24 +11,22 @@ import httpx
 from anvesh import __version__
 from anvesh.state import Table, utc_now
 
-TIMEOUT_SECONDS = 15
-RETRIES = 2  # extra attempts after the first one
-BACKOFF_SECONDS = (2, 5)  # wait before retry 1 and retry 2
-MAX_RETRY_AFTER = 30  # never wait longer than this for a server's Retry-After
-MIN_INTERVAL_PER_HOST = 1.0  # at most one request a second to the same host
+from anvesh.config import HttpSettings
+
+# Fixed fact, not a preference: these statuses mean "try again later".
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 
 
-def build_user_agent(contact: str | None = None) -> str:
+def build_user_agent(contact: str | None = None, project_url: str = HttpSettings().project_url) -> str:
     """Name the project and, if given, a contact address. SEC EDGAR requires the contact."""
-    contact = contact if contact is not None else os.environ.get("RADAR_CONTACT", "")
-    agent = f"anvesh/{__version__} (+https://github.com/urmi-labs/anvesh"
+    contact = contact or os.environ.get("RADAR_CONTACT", "")
+    agent = f"anvesh/{__version__} (+{project_url}"
     if contact:
         agent += f"; {contact}"
     return agent + ")"
 
 
-def _retry_after_seconds(response: httpx.Response) -> float | None:
+def _retry_after_seconds(response: httpx.Response, cap: float) -> float | None:
     value = response.headers.get("Retry-After")
     if not value:
         return None
@@ -39,7 +37,7 @@ def _retry_after_seconds(response: httpx.Response) -> float | None:
             seconds = (parsedate_to_datetime(value) - utc_now()).total_seconds()
         except (TypeError, ValueError):
             return None
-    return max(0.0, min(seconds, MAX_RETRY_AFTER))
+    return max(0.0, min(seconds, cap))
 
 
 class Http:
@@ -50,10 +48,14 @@ class Http:
         user_agent: str | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        settings: HttpSettings | None = None,
     ):
+        self.settings = settings or HttpSettings()
         self.cache = cache  # state table holding ETag / Last-Modified per URL
-        self.client = client or httpx.Client(timeout=TIMEOUT_SECONDS, follow_redirects=True)
-        self.client.headers["User-Agent"] = user_agent or build_user_agent()
+        self.client = client or httpx.Client(timeout=self.settings.timeout_seconds, follow_redirects=True)
+        self.client.headers["User-Agent"] = user_agent or build_user_agent(
+            self.settings.contact, self.settings.project_url
+        )
         self.sleep = sleep
         self.clock = clock
         self._last_request: dict[str, float] = {}
@@ -62,7 +64,7 @@ class Http:
         host = urlsplit(url).netloc
         last = self._last_request.get(host)
         if last is not None:
-            wait = MIN_INTERVAL_PER_HOST - (self.clock() - last)
+            wait = self.settings.min_interval_per_host_seconds - (self.clock() - last)
             if wait > 0:
                 self.sleep(wait)
         self._last_request[host] = self.clock()
@@ -87,18 +89,20 @@ class Http:
             if saved.get("last_modified"):
                 headers["If-Modified-Since"] = saved["last_modified"]
 
-        for attempt in range(RETRIES + 1):
+        retries = self.settings.retries
+        backoff = self.settings.backoff_seconds
+        for attempt in range(retries + 1):
             self._wait_for_host(url)
             try:
                 response = self.client.get(url, params=params, headers=headers)
             except httpx.TransportError:
-                if attempt == RETRIES:
+                if attempt == retries:
                     raise
-                self.sleep(BACKOFF_SECONDS[attempt])
+                self.sleep(backoff[attempt])
                 continue
-            if response.status_code in RETRY_STATUSES and attempt < RETRIES:
-                retry_after = _retry_after_seconds(response)
-                self.sleep(retry_after if retry_after is not None else BACKOFF_SECONDS[attempt])
+            if response.status_code in RETRY_STATUSES and attempt < retries:
+                retry_after = _retry_after_seconds(response, self.settings.max_retry_after_seconds)
+                self.sleep(retry_after if retry_after is not None else backoff[attempt])
                 continue
             break
 
