@@ -29,3 +29,4 @@ funding:
     - '\blay(s|ing)? off\b|\blayoffs?\b|\bjob cuts?\b|\bshuts? down\b'      # layoffs, shutdowns
     - '\b(closes?|closed|launch(es|ed)?|announces?|unveils?)\b.*\bfund\b'    # VC funds raising, not startups
     - '\bfund (i|ii|iii|iv|v|vi)\b|\bvc fund\b|\bcorpus\b'
+    - '\b(this|last) week\b|\bweekly\b|\bround-?ups?\b|\bfunding galore\b|\bstartups (raised|raise)\b'   # roundups, not one startup

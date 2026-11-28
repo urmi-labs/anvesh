@@ -87,6 +87,9 @@ KEEP = [
     "SaaS startup Beta raised $12M Series B led by Accel",
     "Gamma picks up $2M pre-seed round from angels",
     "AI startup Delta lands $8 million investment",
+    "Kabeer Biswas’ M Raises $9 Mn Led By RTP Global",
+    "Sqwish Labs Raises $3M in Pre-Seed Funding",
+    "WaterSense Raises €5.75M in Pre-Seed Funding",
 ]
 DROP = [
     ("Swiggy IPO opens for subscription today", EXCLUDED),
@@ -95,6 +98,9 @@ DROP = [
     ("Edtech startup lays off 200 employees", EXCLUDED),
     ("Blume Ventures closes $290M Fund IV", EXCLUDED),
     ("Startup raises funds ahead of IPO", EXCLUDED),
+    ("From Finnable To M — Indian Startups Raised About $147 Mn This Week", EXCLUDED),
+    ("[Weekly funding roundup Nov 21-27] VC inflow dips on modest deal activity", EXCLUDED),
+    ("Funding Galore: Indian startups raise $200 Mn", EXCLUDED),
     ("Paytm Q2 results: revenue up 10%", NOT_FUNDING),
     ("Ten tips for writing a pitch deck", NOT_FUNDING),
 ]
