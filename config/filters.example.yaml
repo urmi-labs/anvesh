@@ -1,0 +1,31 @@
+# Anvesh filters: what counts as a match. Copy this file to your private data repo as filters.yaml.
+# Every value below is the default, so you only need to keep the sections you change.
+# A missing or empty filters.yaml means "use all defaults".
+#
+# Patterns are Python regular expressions, matched case-insensitively.
+# Write them in single quotes so backslashes stay as typed: '\braises\b'
+# If you set include or exclude, your list REPLACES the default list (it is not added to it).
+
+window:
+  hours: 24          # keep signals published in the last N hours (each source's lag_hours is added)
+  undated: keep      # keep = an item with no date counts as published when first seen; drop = skip it
+
+funding:
+  match_fields: [title]   # where to look: title, summary, or both. Summaries are noisy, so title only.
+
+  # A signal is kept if ANY include pattern matches ...
+  include:
+    - '\b(raises?|raised|raising)\b'
+    - '\b(secures?|secured|bags?|bagged|lands?|landed|nets?|netted|picks up|snags?)\b.*\b(funding|round|investment|seed|series)\b'
+    - '\b(pre-?seed|seed|series [a-f]|pre-series [a-f])\b.*\b(round|funding)\b'
+    - '\bfunding round\b'
+    - '\b(led by|co-led by)\b'
+
+  # ... and NO exclude pattern matches. Exclude always wins.
+  exclude:
+    - '\bipos?\b|\bdrhp\b|\blisting\b|\bgoes public\b'                       # IPOs and listings
+    - '\bacqui(re|res|red|ring|sition|sitions)\b|\bbuys\b|\bmerger\b|\bmerges\b'   # M&A
+    - '\bstake (sale|sells?)\b|\bsells? (a |its )?stake\b|\bblock deals?\b|\bsecondary (sale|transaction)\b'
+    - '\blay(s|ing)? off\b|\blayoffs?\b|\bjob cuts?\b|\bshuts? down\b'      # layoffs, shutdowns
+    - '\b(closes?|closed|launch(es|ed)?|announces?|unveils?)\b.*\bfund\b'    # VC funds raising, not startups
+    - '\bfund (i|ii|iii|iv|v|vi)\b|\bvc fund\b|\bcorpus\b'

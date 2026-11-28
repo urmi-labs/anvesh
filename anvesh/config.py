@@ -1,5 +1,6 @@
 """Load and validate the YAML config files."""
 
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -125,6 +126,60 @@ class Settings(BaseModel):
     google_news: GoogleNewsSettings = Field(default_factory=GoogleNewsSettings)
 
 
+# Default funding patterns. Case-insensitive Python regexes, matched against the title.
+DEFAULT_INCLUDE = [
+    r"\b(raises?|raised|raising)\b",
+    r"\b(secures?|secured|bags?|bagged|lands?|landed|nets?|netted|picks up|snags?)\b.*\b(funding|round|investment|seed|series)\b",
+    r"\b(pre-?seed|seed|series [a-f]|pre-series [a-f])\b.*\b(round|funding)\b",
+    r"\bfunding round\b",
+    r"\b(led by|co-led by)\b",
+]
+DEFAULT_EXCLUDE = [
+    r"\bipos?\b|\bdrhp\b|\blisting\b|\bgoes public\b",
+    r"\bacqui(re|res|red|ring|sition|sitions)\b|\bbuys\b|\bmerger\b|\bmerges\b",
+    r"\bstake (sale|sells?)\b|\bsells? (a |its )?stake\b|\bblock deals?\b|\bsecondary (sale|transaction)\b",
+    r"\blay(s|ing)? off\b|\blayoffs?\b|\bjob cuts?\b|\bshuts? down\b",
+    r"\b(closes?|closed|launch(es|ed)?|announces?|unveils?)\b.*\bfund\b",
+    r"\bfund (i|ii|iii|iv|v|vi)\b|\bvc fund\b|\bcorpus\b",
+]
+
+
+class WindowSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hours: int = Field(24, ge=1)  # keep signals published this recently (plus the source's lag_hours)
+    undated: Literal["keep", "drop"] = "keep"  # keep = treat as published when first seen
+
+
+class FundingFilter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    match_fields: list[Literal["title", "summary"]] = ["title"]
+    include: list[str] = Field(default_factory=lambda: list(DEFAULT_INCLUDE))  # any one must match
+    exclude: list[str] = Field(default_factory=lambda: list(DEFAULT_EXCLUDE))  # any one drops it
+
+    @model_validator(mode="after")
+    def patterns_compile(self) -> "FundingFilter":
+        if not self.match_fields:
+            raise ValueError("match_fields needs at least one of: title, summary")
+        for kind in ("include", "exclude"):
+            for pattern in getattr(self, kind):
+                try:
+                    re.compile(pattern)
+                except re.error as exc:
+                    raise ValueError(f"{kind} pattern {pattern!r} is not a valid regex: {exc}") from exc
+        return self
+
+
+class FiltersConfig(BaseModel):
+    """filters.yaml: what counts as a match. Every field has a default, so the file is optional."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    window: WindowSettings = Field(default_factory=WindowSettings)
+    funding: FundingFilter = Field(default_factory=FundingFilter)
+
+
 def _read_yaml(path: Path) -> dict:
     if not path.exists():
         raise ConfigError(f"{path} not found")
@@ -162,5 +217,16 @@ def load_settings(config_dir: str | Path) -> Settings:
         return Settings()
     try:
         return Settings.model_validate(_read_yaml(path))
+    except ValidationError as exc:
+        raise ConfigError(_format_errors(path.name, exc)) from exc
+
+
+def load_filters(config_dir: str | Path) -> FiltersConfig:
+    """Read filters.yaml if it exists. A missing file means "use every default"."""
+    path = Path(config_dir) / "filters.yaml"
+    if not path.exists():
+        return FiltersConfig()
+    try:
+        return FiltersConfig.model_validate(_read_yaml(path))
     except ValidationError as exc:
         raise ConfigError(_format_errors(path.name, exc)) from exc
