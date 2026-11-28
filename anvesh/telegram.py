@@ -46,20 +46,23 @@ class Telegram:
             raise TelegramError(f"missing environment variables: {', '.join(missing)}")
         return cls(token, chat_id)
 
-    def send(self, text: str) -> None:
-        """Send text, split into several messages if it is too long."""
+    def send(self, text: str, parse_mode: str | None = None) -> None:
+        """Send text, split into several messages if it is too long.
+
+        parse_mode="HTML" lets the text use <a href>, <b>; the caller must escape everything else.
+        """
         for chunk in split_text(text):
             wait = SEND_GAP_SECONDS - (time.monotonic() - self._last_sent)
             if wait > 0:
                 time.sleep(wait)
-            response = self.client.post(
-                f"{API_BASE}/bot{self.token}/sendMessage",
-                data={
-                    "chat_id": self.chat_id,
-                    "text": chunk,
-                    "link_preview_options": json.dumps({"is_disabled": True}),
-                },
-            )
+            data = {
+                "chat_id": self.chat_id,
+                "text": chunk,
+                "link_preview_options": json.dumps({"is_disabled": True}),
+            }
+            if parse_mode:
+                data["parse_mode"] = parse_mode
+            response = self.client.post(f"{API_BASE}/bot{self.token}/sendMessage", data=data)
             self._last_sent = time.monotonic()
             try:
                 body = response.json()

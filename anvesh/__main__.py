@@ -10,6 +10,7 @@ from anvesh.check import run_check
 from anvesh.config import ConfigError, load_filters, load_settings, load_sources
 from anvesh.http import Http
 from anvesh.dedupe import SeenStories
+from anvesh.digest import build_messages, deliver
 from anvesh.pipeline import run_pass, summary_line
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
@@ -64,7 +65,6 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
 
     seen = SeenStories(state.table("seen_stories"), filters.dedupe)
     result = run_pass(sources, filters, http, now, seen, settings.google_news.language)
-    summary = summary_line(result)
     runs.upsert(
         to_iso(now),
         {
@@ -81,25 +81,40 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     )
     for _, error in sorted(result.collected.failed.items()):
         print(f"FAIL {error}", file=sys.stderr)
-    print(summary)
-    for story in result.new:
-        also = f"  (also: {', '.join(story.also_in())})" if story.also_in() else ""
-        print(f"  [{story.signal.source}] {story.signal.title}{also}\n    {story.signal.link}")
+    print(summary_line(result))
 
-    # Until the digest is built (Session 14), run sends only this status message and does NOT
-    # mark stories as seen: a story is remembered only once it was really delivered.
-    message = f"anvesh {__version__}\n{summary}"
+    counts = {
+        "new": len(result.new),
+        "stories": len(result.stories),
+        "fetched": len(result.collected.signals),
+        "sources": len({s.source for s in result.collected.signals}),
+    }
+    messages, held_back = build_messages(result.new, counts, settings.digest)
     if dry_run:
-        print(f"[dry-run] would send to Telegram:\n{message}")
+        for number, message in enumerate(messages, 1):
+            print(f"\n[dry-run] message {number}/{len(messages)} ({len(message.text)} chars, "
+                  f"{len(message.stories)} stories) would be sent:\n{message.text}")
+        if not messages:
+            print("[dry-run] nothing new, nothing would be sent")
         return 0
+
     try:
-        Telegram.from_env().send(message)
-    except (TelegramError, httpx.HTTPError) as exc:
+        telegram = Telegram.from_env() if messages else None
+    except TelegramError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 1  # state not saved: nothing was delivered, so this run never happened
+    delivered, error = deliver(
+        messages,
+        send=lambda text: telegram.send(text, parse_mode="HTML"),
+        remember=lambda story: seen.remember(story, now=now),
+    )
+    runs.upsert(to_iso(now), {"delivered": delivered, "held_back": held_back}, now=now)
+    state.save(settings.state.retention_days)
+    if error is not None:
+        print(f"error: {error}", file=sys.stderr)
+        print(f"delivered {delivered} of {len(result.new)} stories; the rest come again next run", file=sys.stderr)
         return 1
-    finally:
-        state.save(settings.state.retention_days)
-    print("sent status message to Telegram")
+    print(f"sent {len(messages)} message(s), {delivered} stories")
     return 0
 
 

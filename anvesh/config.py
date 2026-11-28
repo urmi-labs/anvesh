@@ -116,6 +116,29 @@ class GoogleNewsSettings(BaseModel):
     language: str = Field("en", pattern=r"^[a-z]{2,3}$")  # e.g. en, de, hi
 
 
+class DigestSettings(BaseModel):
+    """How the Telegram digest looks. Placeholders in header: {new} {stories} {fetched} {sources}."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    header: str = "Anvesh: {new} newly funded startups"
+    group_by_region: bool = True  # a bold region line (IN, GLOBAL, EU ...) before its stories
+    region_order: list[str] = ["IN", "REMOTE", "GLOBAL", "US", "EU", "UK"]  # others follow, A-Z
+    show_sources: bool = True  # "inc42 +2" after each headline: where it was reported
+    max_stories: int | None = Field(None, ge=1)  # None = all; extra stories wait for the next run
+    send_when_empty: bool = False  # send the header even when there is nothing new
+
+    @model_validator(mode="after")
+    def header_placeholders_exist(self) -> "DigestSettings":
+        try:
+            self.header.format(new=0, stories=0, fetched=0, sources=0)
+        except (KeyError, IndexError, ValueError) as exc:
+            raise ValueError(
+                f"header {self.header!r} has an unknown placeholder {exc}; use {{new}} {{stories}} {{fetched}} {{sources}}"
+            ) from exc
+        return self
+
+
 class Settings(BaseModel):
     """settings.yaml: how Anvesh behaves. Every field has a default, so the file is optional."""
 
@@ -124,6 +147,7 @@ class Settings(BaseModel):
     http: HttpSettings = Field(default_factory=HttpSettings)
     state: StateSettings = Field(default_factory=StateSettings)
     google_news: GoogleNewsSettings = Field(default_factory=GoogleNewsSettings)
+    digest: DigestSettings = Field(default_factory=DigestSettings)
 
 
 # Default funding patterns. Case-insensitive Python regexes, matched against the title.

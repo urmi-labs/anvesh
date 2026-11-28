@@ -16,3 +16,12 @@ state:
 
 google_news:
   language: en                     # interface language for google_news sources (en, de, hi, ...)
+
+digest:
+  # The Telegram message with each run's new stories. Headlines are links, so long URLs never show.
+  header: "Anvesh: {new} newly funded startups"   # placeholders: {new} {stories} {fetched} {sources}
+  group_by_region: true            # a bold region line (IN, GLOBAL, EU ...) before its stories
+  region_order: [IN, REMOTE, GLOBAL, US, EU, UK]   # regions not listed come after these, A-Z
+  show_sources: true               # "inc42 +2" after each headline: who reported it, and how many others
+  max_stories: null                # null = send all; a number holds the rest back for the next run
+  send_when_empty: false           # true = send the header even when nothing is new (a heartbeat)
