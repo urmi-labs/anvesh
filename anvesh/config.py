@@ -172,6 +172,29 @@ class FundingFilter(BaseModel):
         return self
 
 
+# Words that say nothing about WHICH startup a headline is about. Two headlines only count as
+# the same story if they share a word that is not in this list (usually the company name).
+DEFAULT_IGNORE_WORDS = """
+a an the and or of in on for to with by from at as its it is into via new this that
+raises raise raised raising secures secure secured bags bag bagged lands landed nets picks up
+snags backs backed funding fund round rounds seed pre-seed pre series follow-on fresh capital
+investment investors led co-led startup startups based founder founders co-founder ceo calls
+million mn bn billion crore cr lakh rs usd inr eur
+ai tech platform company firm develop expand scale help build labs lab health robotics systems
+solutions software technologies technology ventures global india indian
+""".split()
+
+
+class DedupeSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Same story if this share of their name words overlap (0..1), even with no amount in the title
+    title_similarity: float = Field(0.6, gt=0, le=1)
+    # Same story if they share one name word AND the same amount in the same currency
+    match_on_amount: bool = True
+    ignore_words: list[str] = Field(default_factory=lambda: list(DEFAULT_IGNORE_WORDS))
+
+
 class FiltersConfig(BaseModel):
     """filters.yaml: what counts as a match. Every field has a default, so the file is optional."""
 
@@ -179,6 +202,7 @@ class FiltersConfig(BaseModel):
 
     window: WindowSettings = Field(default_factory=WindowSettings)
     funding: FundingFilter = Field(default_factory=FundingFilter)
+    dedupe: DedupeSettings = Field(default_factory=DedupeSettings)
 
 
 def _read_yaml(path: Path) -> dict:

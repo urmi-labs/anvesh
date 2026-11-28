@@ -30,3 +30,22 @@ funding:
     - '\b(closes?|closed|launch(es|ed)?|announces?|unveils?)\b.*\bfund\b'    # VC funds raising, not startups
     - '\bfund (i|ii|iii|iv|v|vi)\b|\bvc fund\b|\bcorpus\b'
     - '\b(this|last) week\b|\bweekly\b|\bround-?ups?\b|\b(funding|deal|weekly) wrap\b|\bfunding galore\b|\bstartups (raised|raise)\b'   # roundups, not one startup
+
+dedupe:
+  # Many outlets report one raise. Two headlines are the same story when they share at least one
+  # "name word" (a title word NOT in ignore_words, usually the company name) and either
+  title_similarity: 0.6    # ... this share of their name words overlap (0.0 - 1.0), or
+  match_on_amount: true    # ... they state the same amount in the same currency ($9M = $9 Mn = $9 million).
+  # Currencies are never converted: $10.4M and €9.48M stay two entries rather than risk merging
+  # two different startups. Add a word here if it keeps causing wrong merges; your list replaces this one.
+  # Careful: YAML reads bare on / off / yes / no as true/false, so quote them: "on"
+  ignore_words: [
+    a, an, the, and, or, of, in, "on", for, to, with, by, from, at, as, its, it, is, into, via, new,
+    this, that, raises, raise, raised, raising, secures, secure, secured, bags, bag, bagged, lands,
+    landed, nets, picks, up, snags, backs, backed, funding, fund, round, rounds, seed, pre-seed,
+    pre, series, follow-on, fresh, capital, investment, investors, led, co-led, startup, startups,
+    based, founder, founders, co-founder, ceo, calls, million, mn, bn, billion, crore, cr, lakh,
+    rs, usd, inr, eur, ai, tech, platform, company, firm, develop, expand, scale, help, build,
+    labs, lab, health, robotics, systems, solutions, software, technologies, technology, ventures,
+    global, india, indian
+  ]
