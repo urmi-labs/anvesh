@@ -43,7 +43,7 @@ def amounts(title: str) -> frozenset[tuple[str, int]]:
     found = set()
     for symbol, number, unit in AMOUNT.findall(title):
         value = float(number.replace(",", "")) * SCALE[unit.lower()]
-        found.add((CURRENCY[symbol.lower().rstrip(".")], round(value, -3)))
+        found.add((CURRENCY[symbol.lower().rstrip(".")], int(round(value, -3))))
     return frozenset(found)
 
 
@@ -121,3 +121,54 @@ def dedupe(signals: list[Signal], settings: DedupeSettings) -> list[Story]:
         else:
             stories.append(Story(signal, [signal.source], [print_]))
     return stories
+
+
+def story_record(story: Story) -> dict:
+    """What the seen_stories table keeps about a delivered story (JSON-safe)."""
+    return {
+        "title": story.signal.title,
+        "link": story.signal.link,
+        "sources": list(story.sources),
+        "prints": [
+            {"words": sorted(p.words), "amounts": sorted([c, v] for c, v in p.amounts)} for p in story.prints
+        ],
+    }
+
+
+def story_key(story: Story) -> str:
+    return normalise_link(story.signal.link)
+
+
+class SeenStories:
+    """Stories delivered in earlier runs, read from the `seen_stories` state table.
+
+    A new story counts as seen when it matches a remembered one the same way dedupe merges
+    two headlines, so tomorrow's re-publication by another outlet is not sent again.
+    Records are refreshed when matched, so a story keeps being recognised while it is in the news.
+    """
+
+    def __init__(self, table, settings: DedupeSettings):
+        self.table = table
+        self.settings = settings
+        self._prints: list[tuple[str, Fingerprint]] = []
+        for key, record in table.records.items():
+            for p in record.get("prints", []):
+                amounts_ = frozenset((c, int(v)) for c, v in p.get("amounts", []))
+                self._prints.append((key, Fingerprint(frozenset(p.get("words", [])), amounts_)))
+
+    def match(self, story: Story) -> str | None:
+        """Key of the remembered story this one repeats, or None if it is new."""
+        if story_key(story) in self.table:
+            return story_key(story)
+        for key, old in self._prints:
+            if story.matches(old, self.settings):
+                return key
+        return None
+
+    def remember(self, story: Story, now=None) -> None:
+        """Call only after the story was really delivered."""
+        key = self.match(story) or story_key(story)
+        self.table.upsert(key, story_record(story) if key not in self.table else {}, now=now)
+        if key == story_key(story):
+            for p in story.prints:
+                self._prints.append((key, p))

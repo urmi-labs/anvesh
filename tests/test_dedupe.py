@@ -91,3 +91,48 @@ def test_dedupe_section_in_filters_yaml(tmp_path):
     config = load_filters(tmp_path)
     assert config.dedupe.title_similarity == 0.8 and config.dedupe.match_on_amount is False
     assert config.funding == FiltersConfig().funding
+
+
+# ---------- memory across runs ----------
+
+from datetime import UTC, datetime  # noqa: E402
+
+from anvesh.dedupe import SeenStories  # noqa: E402
+from anvesh.state import State  # noqa: E402
+
+NOW = datetime(2026, 11, 28, 6, 0, tzinfo=UTC)
+
+
+def remembered(tmp_path, *signals):
+    """Deliver stories in run 1, save state, and load a fresh SeenStories as run 2 would."""
+    state = State(tmp_path)
+    seen = SeenStories(state.table("seen_stories"), DedupeSettings())
+    for story in dedupe(list(signals), DedupeSettings()):
+        seen.remember(story, now=NOW)
+    state.save()
+    return SeenStories(State(tmp_path).table("seen_stories"), DedupeSettings())
+
+
+def test_same_link_next_run_is_seen(tmp_path):
+    seen = remembered(tmp_path, sig("Acme raises $5M", "inc42", "https://inc42.com/acme"))
+    [story] = dedupe([sig("Acme raises $5M", "inc42", "https://inc42.com/acme/?utm_source=x")], DedupeSettings())
+    assert seen.match(story) == "https://inc42.com/acme"
+
+
+def test_other_outlet_next_run_is_seen(tmp_path):
+    seen = remembered(tmp_path, sig("Lute Raises $20M in Funding to Develop Touch-Based AI Models", "gnews"))
+    [story] = dedupe([sig("Lute Raises $20 Million for Its Robotic Models", "finsmes")], DedupeSettings())
+    assert seen.match(story) is not None
+
+
+def test_new_startup_is_not_seen(tmp_path):
+    seen = remembered(tmp_path, sig("Lute Raises $20M", "gnews"))
+    [story] = dedupe([sig("Sooner Raises $20M in Seed Funding", "finsmes")], DedupeSettings())
+    assert seen.match(story) is None
+
+
+def test_record_is_readable_json(tmp_path):
+    remembered(tmp_path, sig("Kabeer Biswas’ M Raises $9 Mn Led By RTP Global", "inc42", "https://inc42.com/m"))
+    line = (tmp_path / "seen_stories.jsonl").read_text(encoding="utf-8")
+    assert '"title": "Kabeer Biswas’ M Raises $9 Mn Led By RTP Global"' in line
+    assert '"amounts": [["usd", 9000000]]' in line

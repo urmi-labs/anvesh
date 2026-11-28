@@ -9,6 +9,7 @@ from anvesh import __version__
 from anvesh.check import run_check
 from anvesh.config import ConfigError, load_filters, load_settings, load_sources
 from anvesh.http import Http
+from anvesh.dedupe import SeenStories
 from anvesh.pipeline import run_pass, summary_line
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
@@ -61,27 +62,32 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     now = utc_now()
     http = Http(cache=state.table("http_cache"), settings=settings.http)
 
-    collected, result = run_pass(sources, filters, http, now, settings.google_news.language)
-    summary = summary_line(collected, result)
+    seen = SeenStories(state.table("seen_stories"), filters.dedupe)
+    result = run_pass(sources, filters, http, now, seen, settings.google_news.language)
+    summary = summary_line(result)
     runs.upsert(
         to_iso(now),
         {
             "version": __version__,
             "dry_run": dry_run,
-            "fetched": len(collected.signals),
-            "kept": len(result.kept),
-            "dropped": dict(result.dropped),
-            "failed": collected.failed,
+            "fetched": len(result.collected.signals),
+            "kept": len(result.filtered.kept),
+            "dropped": dict(result.filtered.dropped),
+            "stories": len(result.stories),
+            "new": len(result.new),
+            "failed": result.collected.failed,
         },
         now=now,
     )
-    for _, error in sorted(collected.failed.items()):
+    for _, error in sorted(result.collected.failed.items()):
         print(f"FAIL {error}", file=sys.stderr)
     print(summary)
-    for signal in result.kept:
-        print(f"  [{signal.source}] {signal.title}\n    {signal.link}")
+    for story in result.new:
+        also = f"  (also: {', '.join(story.sources[1:])})" if len(story.sources) > 1 else ""
+        print(f"  [{story.sources[0]}] {story.signal.title}{also}\n    {story.signal.link}")
 
-    # Until the digest is built (Session 13), run sends only this status message.
+    # Until the digest is built (Session 14), run sends only this status message and does NOT
+    # mark stories as seen: a story is remembered only once it was really delivered.
     message = f"anvesh {__version__}\n{summary}"
     if dry_run:
         print(f"[dry-run] would send to Telegram:\n{message}")

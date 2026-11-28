@@ -4,7 +4,9 @@ import httpx
 
 from anvesh.config import FiltersConfig, SourcesConfig
 from anvesh.http import Http
+from anvesh.dedupe import SeenStories
 from anvesh.pipeline import run_pass, summary_line
+from anvesh.state import State
 
 NOW = datetime(2026, 11, 28, 6, 0, tzinfo=UTC)
 FEED = """<?xml version="1.0"?><rss version="2.0"><channel><title>Feed</title>
@@ -36,10 +38,24 @@ def test_run_pass_keeps_fresh_funding_and_survives_broken_sources(monkeypatch):
         {"name": "off", "adapter": "rss", "url": "https://good.example/off", "enabled": False},
         {"name": "api", "adapter": "json_api", "url": "https://good.example/api"},
     ]})
-    collected, result = run_pass(sources, FiltersConfig(), make_http(), NOW)
-    assert [s.title for s in result.kept] == ["Acme raises $5M seed round"]
-    assert dict(result.dropped) == {"excluded": 1, "too_old": 1}
-    assert collected.failed == {"blocked": "blocked: HTTP 403"}
-    assert collected.skipped == {"keyed": "needs SOME_KEY", "api": "adapter 'json_api' not built yet"}
-    line = summary_line(collected, result)
+    result = run_pass(sources, FiltersConfig(), make_http(), NOW)
+    assert [s.title for s in result.filtered.kept] == ["Acme raises $5M seed round"]
+    assert dict(result.filtered.dropped) == {"excluded": 1, "too_old": 1}
+    assert result.collected.failed == {"blocked": "blocked: HTTP 403"}
+    assert result.collected.skipped == {"keyed": "needs SOME_KEY", "api": "adapter 'json_api' not built yet"}
+    line = summary_line(result)
     assert "fetched 3 signals from 1 sources (1 failed, 2 skipped); kept 1" in line
+    assert line.endswith("1 stories (1 new, 0 already seen)")
+
+
+def test_run_pass_skips_stories_seen_in_earlier_runs(tmp_path):
+    sources = SourcesConfig.model_validate(
+        {"sources": [{"name": "good", "adapter": "rss", "url": "https://good.example/feed"}]}
+    )
+    seen = SeenStories(State(tmp_path).table("seen_stories"), FiltersConfig().dedupe)
+    first = run_pass(sources, FiltersConfig(), make_http(), NOW, seen)
+    assert len(first.new) == 1
+    for story in first.new:
+        seen.remember(story, now=NOW)
+    second = run_pass(sources, FiltersConfig(), make_http(), NOW, seen)
+    assert second.new == [] and second.already_seen == 1
