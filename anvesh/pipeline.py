@@ -10,6 +10,7 @@ from datetime import datetime
 
 from anvesh.adapters import IMPLEMENTED, SourceError, fetch
 from anvesh.dedupe import SeenStories, Story, dedupe
+from anvesh.sector import SectorResult, filter_sector
 from anvesh.config import FiltersConfig, SourcesConfig
 from anvesh.filters import FilterResult, apply_filters
 from anvesh.http import Http
@@ -60,7 +61,8 @@ class Pass:
     collected: Collected
     filtered: FilterResult
     stories: list[Story]  # after dedupe
-    new: list[Story]  # not delivered in an earlier run
+    sector: SectorResult  # tech kept / not-tech dropped
+    new: list[Story]  # tech, and not delivered in an earlier run
     already_seen: int
 
 
@@ -72,17 +74,18 @@ def run_pass(
     seen: SeenStories | None = None,
     language: str = "en",
 ) -> Pass:
-    """fetch -> 24h + funding filter -> dedupe -> drop stories delivered before."""
+    """fetch -> 24h + funding filter -> dedupe -> tech only -> drop stories delivered before."""
     collected = collect(sources, http, language)
     filtered = apply_filters(collected.signals, sources.sources, filters, now)
     stories = dedupe(filtered.kept, filters.dedupe)
-    new = [s for s in stories if seen is None or seen.match(s) is None]
-    return Pass(collected, filtered, stories, new, len(stories) - len(new))
+    sector = filter_sector(stories, filters.sector)
+    new = [s for s in sector.kept if seen is None or seen.match(s) is None]
+    return Pass(collected, filtered, stories, sector, new, len(sector.kept) - len(new))
 
 
 def summary_line(p: Pass) -> str:
     """e.g. 'fetched 467 signals from 16 sources (0 failed, 8 skipped); kept 115; dropped ...;
-    33 stories (30 new, 3 already seen)'"""
+    33 stories, 3 not tech (30 new, 0 already seen)'"""
     collected, result = p.collected, p.filtered
     ok = len({s.source for s in collected.signals})
     drops = " ".join(f"{reason}={n}" for reason, n in sorted(result.dropped.items())) or "none"
@@ -90,5 +93,6 @@ def summary_line(p: Pass) -> str:
         f"fetched {len(collected.signals)} signals from {ok} sources "
         f"({len(collected.failed)} failed, {len(collected.skipped)} skipped); "
         f"kept {len(result.kept)}; dropped {drops}; "
-        f"{len(p.stories)} stories ({len(p.new)} new, {p.already_seen} already seen)"
+        f"{len(p.stories)} stories, {len(p.sector.dropped)} not tech "
+        f"({len(p.new)} new, {p.already_seen} already seen)"
     )

@@ -85,12 +85,18 @@ run / dry-run exit 1 (a blind run must not look like a quiet day). Private radar
 on purpose; existing concurrency group radar (cancel-in-progress false) stops overlapping runs on the
 state branch; last step "Alert on failure" (if: failure(), plain curl, works even if install broke) sends
 one Telegram line with the run URL. 130 tests.
+Session 16 (2026-11-28): anvesh/sector.py, filters.yaml `sector:` (enabled, match_fields title+summary,
+tech / non_tech regex lists, unknown keep|drop). Classified from ALL merged headlines (Story.signals):
+tech wins over non_tech; only non_tech is dropped; unknown kept by default. Pass.sector holds kept/dropped;
+dry-run lists "not tech, dropped" lines; summary shows "N stories, M not tech". Funding exclude now also
+drops government grants. On the 2026-11-28 fixture: drops exactly pet food, protein water, period products;
+0 tech misclassified. 144 tests.
 
 ## Next
 Watch the first scheduled runs (gh run list -R Adityapradhan14/anvesh-data --workflow=radar.yml): start
 times (GitHub can be 5-30 min late), digest arrives, no duplicates across runs, state branch commits.
-Session 16 candidates, pick by what the first days of digests show:
+Tune sector lists from the "not tech, dropped" lines in dry-run if a real tech startup is dropped.
+Session 17 candidates, pick by what the first days of digests show:
 - region per story instead of per source (Indian raises via gnews_funding show as GLOBAL)
-- tech-only classification (drops pet food, beverages, govt grants)
-- json_api adapter (8 sources skipped: HN jobs/launches, YC, remote job boards)
+- json_api adapter (8 sources skipped: HN jobs/launches, YC, remote job boards) - first step toward roles
 Goal: schedule live before 2026-12-28 (done 2026-11-28 if the first scheduled runs are clean).

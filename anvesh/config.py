@@ -165,8 +165,32 @@ DEFAULT_EXCLUDE = [
     r"\blay(s|ing)? off\b|\blayoffs?\b|\bjob cuts?\b|\bshuts? down\b",
     r"\b(closes?|closed|launch(es|ed)?|announces?|unveils?)\b.*\bfund\b",
     r"\bfund (i|ii|iii|iv|v|vi)\b|\bvc fund\b|\bcorpus\b",
+    r"\b(govt|government) (seed )?(grant|funding)\b|\bgrants?\b",
     r"\b(this|last) week\b|\bweekly\b|\bround-?ups?\b|\b(funding|deal|weekly) wrap\b|\bfunding galore\b|\bstartups (raised|raise)\b",
 ]
+
+
+# Default sector patterns (case-insensitive regex, matched against every headline of a story).
+DEFAULT_TECH = [
+    r"\bai\b|\bai-(powered|native|first|driven|based)\b|\bartificial intelligence\b|\bmachine learning\b|\bllms?\b|\bgenai\b|\bagents?\b|\bagentic\b",
+    r"\bsaas\b|\bsoftware\b|\bplatform\b|\bapps?\b|\bcloud\b|\bdata\b|\banalytics\b|\bapis?\b|\bdevelopers?\b|\bdevops\b|\binfrastructure\b|\bopen[- ]source\b",
+    r"\bcyber|\bsecurity\b|\bfintech\b|\bhealthtech\b|\bedtech\b|\binsurtech\b|\bproptech\b|\bagritech\b|\bagtech\b|\bdeeptech\b|\bclimate ?tech\b|\bdefen[cs]e tech\b|\btech\b|\btechnology\b",
+    r"\brobot(s|ic|ics)?\b|\bautomat(e|es|ed|ion|ing)\b|\bautonomous\b|\bdrones?\b|\bsatellites?\b|\bspace ?tech\b|\baerospace\b|\bjet engines?\b|\bsemiconductors?\b|\bchips?\b|\bquantum\b",
+    r"\bblockchain\b|\bcrypto\b|\bweb3\b|\bdigital\b|\bonline\b|\bmarketplace\b|\bmobility\b|\bev\b|\belectric vehicles?\b|\bbatter(y|ies)\b|\bnuclear\b|\breactor\b|\bbookkeeping\b|\bcompliance\b|\bverification\b|\bsourcing\b",
+]
+DEFAULT_NON_TECH = [
+    r"\bpet (food|care|products?)\b|\bfood\b|\bsnacks?\b|\bbeverages?\b|\bdrinks?\b|\bprotein\b|\bcoffee\b|\btea\b|\bwine\b|\bbeer\b|\bspirits\b|\bliquor\b|\brestaurants?\b|\bcafes?\b|\bbakery\b|\bcloud kitchens?\b",
+    r"\bapparel\b|\bfashion\b|\bclothing\b|\bfootwear\b|\bjewel(le)?ry\b|\bhandbags?\b|\bcosmetics?\b|\bskincare\b|\bbeauty\b|\bhaircare\b|\bpersonal care\b|\bperiod products?\b|\bmenstrual\b",
+    r"\bfurniture\b|\bhome decor\b|\bd2c\b|\bdtc\b|\bconsumer brands?\b|\breal estate\b|\bhotels?\b|\bhospitality\b",
+]
+
+
+def _check_patterns(kind: str, patterns: list[str]) -> None:
+    for pattern in patterns:
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise ValueError(f"{kind} pattern {pattern!r} is not a valid regex: {exc}") from exc
 
 
 class WindowSettings(BaseModel):
@@ -188,11 +212,27 @@ class FundingFilter(BaseModel):
         if not self.match_fields:
             raise ValueError("match_fields needs at least one of: title, summary")
         for kind in ("include", "exclude"):
-            for pattern in getattr(self, kind):
-                try:
-                    re.compile(pattern)
-                except re.error as exc:
-                    raise ValueError(f"{kind} pattern {pattern!r} is not a valid regex: {exc}") from exc
+            _check_patterns(kind, getattr(self, kind))
+        return self
+
+
+class SectorFilter(BaseModel):
+    """Keep tech startups only. tech wins over non_tech; a story matching neither is 'unknown'."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    match_fields: list[Literal["title", "summary"]] = ["title", "summary"]
+    tech: list[str] = Field(default_factory=lambda: list(DEFAULT_TECH))
+    non_tech: list[str] = Field(default_factory=lambda: list(DEFAULT_NON_TECH))
+    unknown: Literal["keep", "drop"] = "keep"  # headline says nothing about what the startup does
+
+    @model_validator(mode="after")
+    def patterns_compile(self) -> "SectorFilter":
+        if not self.match_fields:
+            raise ValueError("match_fields needs at least one of: title, summary")
+        _check_patterns("tech", self.tech)
+        _check_patterns("non_tech", self.non_tech)
         return self
 
 
@@ -227,6 +267,7 @@ class FiltersConfig(BaseModel):
     window: WindowSettings = Field(default_factory=WindowSettings)
     funding: FundingFilter = Field(default_factory=FundingFilter)
     dedupe: DedupeSettings = Field(default_factory=DedupeSettings)
+    sector: SectorFilter = Field(default_factory=SectorFilter)
 
 
 def _read_yaml(path: Path) -> dict:

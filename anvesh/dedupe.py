@@ -90,6 +90,7 @@ class Story:
     signal: Signal
     sources: list[str] = field(default_factory=list)
     prints: list[Fingerprint] = field(default_factory=list)  # one per merged headline
+    signals: list[Signal] = field(default_factory=list)  # every merged headline, for classification
 
     def also_in(self) -> list[str]:
         """Sources other than the one whose headline and link are shown."""
@@ -117,13 +118,14 @@ def dedupe(signals: list[Signal], settings: DedupeSettings) -> list[Story]:
         for story in stories:  # layer 2: same raise, other outlet
             if story.matches(print_, settings):
                 story.prints.append(print_)
+                story.signals.append(signal)
                 if signal.source not in story.sources:
                     story.sources.append(signal.source)
                 if _better(story.signal, signal):
                     story.signal = signal
                 break
         else:
-            stories.append(Story(signal, [signal.source], [print_]))
+            stories.append(Story(signal, [signal.source], [print_], [signal]))
     return stories
 
 

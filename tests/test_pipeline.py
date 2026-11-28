@@ -45,7 +45,7 @@ def test_run_pass_keeps_fresh_funding_and_survives_broken_sources(monkeypatch):
     assert result.collected.skipped == {"keyed": "needs SOME_KEY", "api": "adapter 'json_api' not built yet"}
     line = summary_line(result)
     assert "fetched 3 signals from 1 sources (1 failed, 2 skipped); kept 1" in line
-    assert line.endswith("1 stories (1 new, 0 already seen)")
+    assert line.endswith("1 stories, 0 not tech (1 new, 0 already seen)")
 
 
 def test_run_pass_skips_stories_seen_in_earlier_runs(tmp_path):

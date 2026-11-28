@@ -95,6 +95,8 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     }
     messages, held_back = build_messages(result.new, counts, settings.digest)
     if dry_run:
+        for story in result.sector.dropped:
+            print(f"[dry-run] not tech, dropped: [{story.signal.source}] {story.signal.title}")
         for number, message in enumerate(messages, 1):
             print(f"\n[dry-run] message {number}/{len(messages)} ({visible_length(message.text)} chars, "
                   f"{len(message.stories)} stories) would be sent:\n{message.text}")
