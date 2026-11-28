@@ -73,10 +73,11 @@ sources:
     notes: "Direct feed returns 403 to non-browser clients (checked 2026-11-27); read through Google News"
 
   - name: eu_startups
-    adapter: rss
-    url: "https://www.eu-startups.com/feed/"
+    adapter: google_news
+    query: "site:eu-startups.com raises"
+    regions: [GB]
     region: EU
-    status: documented
+    notes: "Direct feed works from home but returns 403 from GitHub Actions (2026-11-28); read through Google News"
 
   - name: silicon_republic
     adapter: rss

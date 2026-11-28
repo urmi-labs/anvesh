@@ -114,7 +114,10 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
         print(f"error: {error}", file=sys.stderr)
         print(f"delivered {delivered} of {len(result.new)} stories; the rest come again next run", file=sys.stderr)
         return 1
-    print(f"sent {len(messages)} message(s), {delivered} stories")
+    if messages:
+        print(f"sent {len(messages)} message(s), {delivered} stories")
+    else:
+        print("nothing new, nothing sent")
     return 0
 
 

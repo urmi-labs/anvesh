@@ -52,7 +52,8 @@ def test_run_delivers_once_then_remembers(monkeypatch, tmp_path, capsys):
 
     assert cli.main(args) == 0  # second run: same feed, nothing new, nothing sent
     assert len(FakeTelegram.sent) == 1
-    assert "1 stories (0 new, 1 already seen)" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "1 stories (0 new, 1 already seen)" in out and out.rstrip().endswith("nothing new, nothing sent")
 
 
 def test_dry_run_prints_digest_and_writes_nothing(monkeypatch, tmp_path, capsys):

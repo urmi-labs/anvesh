@@ -35,7 +35,8 @@ Runs on GitHub Actions free tier. No paid APIs.
 - Python package is `anvesh` (CLI `anvesh ...`), not `radar`.
 - sources.yaml is one flat list of sources with an `adapter` field (rss | json_api | google_news), not per-type sections.
 - Action versions: actions/checkout@v7, actions/setup-python@v7.
-- finsmes and devops_com read via Google News (direct feeds 403). SEC Form D disabled until Phase 4 (403 with our User-Agent).
+- finsmes, devops_com and eu_startups read via Google News (direct feeds 403; eu_startups only from
+  GitHub Actions IPs, so always test a new direct feed with a workflow run, not just from home). SEC Form D disabled until Phase 4 (403 with our User-Agent).
 - Added sources: hn_jobs, hn_launches.
 
 ## Status
@@ -69,11 +70,20 @@ SeenStories reads state table seen_stories (links + fingerprints); pipeline.run_
 (collected, filtered, stories, new, already_seen). run does NOT call remember() yet: stories are marked
 seen only after the digest really delivers them. Live dry-run: 115 kept -> 32 stories, 0 wrong merges
 (nextesy 3x by design). tests/fixtures/funding_titles_2026-11-28.txt pins 46 titles -> 33. 112 tests.
+Session 14 done (2026-11-28): anvesh/digest.py. story_line: headline is the <a href> (HTML mode, only
+& < > escaped), "· source +N". build_messages: header (settings digest.header with {new} {stories}
+{fetched} {sources}; bad placeholder = config error), grouped by region in digest.region_order, packed by
+visible_length() (Telegram counts visible text in UTF-16 units; hidden hrefs free), region heading repeated
+on a continued message; max_stories holds the rest back; send_when_empty. deliver(): send each message
+with split=False, remember its stories only after it went out; stops at first failure (none lost, none
+twice). run: missing Telegram secrets = exit 1 without saving state; saves runs.delivered/held_back.
+LIVE 2026-11-28 via private workflow: 31 stories in 1 Telegram message; second run 0 new / 30 seen, nothing
+sent. eu_startups 403 from Actions -> google_news. 128 tests.
 
 ## Next
-Session 14: Telegram digest of `Pass.new`: one entry per story (title, link, also_in sources, region),
-grouped or sorted by config, header with run counts; respect the 4096-char split already in telegram.py;
-long news.google.com links cost space, so decide whether to show the publisher link only. After a
-successful send, call SeenStories.remember() for each delivered story, then state.save().
-Then: cron schedule "17 2,7,11,15 * * *" in the private workflow. Goal: schedule live before 2026-12-28.
-Later: json_api adapter (8 sources skipped), tech-only classification (drops pet food, beverages).
+Session 15: turn on the cron schedule "17 2,7,11,15 * * *" in ../anvesh-data/.github/workflows/radar.yml
+(keep workflow_dispatch), concurrency group so two runs never overlap on the state branch, and a failure
+alert (workflow failure or every source failing -> one plain Telegram line). Watch the first scheduled runs.
+Goal: schedule live before 2026-12-28.
+Later: json_api adapter (8 sources skipped), tech-only classification (drops pet food, beverages),
+region per story instead of per source (Indian raises via gnews_funding show as GLOBAL).
