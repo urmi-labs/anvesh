@@ -47,9 +47,17 @@ config.py Settings; CLI loads it and passes it down. 45 tests.
 Session 11 done (2026-11-27): anvesh/signals.py (frozen Signal dataclass), anvesh/adapters/ (fetch()
 dispatcher, base.py SourceError + clean_text, rss.py for rss and google_news via feedparser, ETag 304 -> []).
 Live-checked on inc42, entrackr, finsmes. json_api adapter not built yet. 54 tests.
+Session 12 done (2026-11-28): filters.yaml (optional; defaults in config.py FiltersConfig): window.hours 24
++ source.lag_hours, window.undated keep|drop (keep = counts as published when first seen; dedupe stops
+repeats), funding.match_fields (title by default), include/exclude regex lists (user list replaces default;
+exclude wins). anvesh/filters.py (in_window, FundingMatcher, apply_filters with drop counts by reason).
+Excludes IPO/listing, M&A, stake sales/block deals, layoffs/shutdowns, VC fund closes, weekly roundups.
+Live-checked on 6 sources: 0 misses, roundup false positive fixed. anvesh/pipeline.py (collect: broken
+source never stops the run, missing `needs` env = skipped; run_pass; summary_line). run / dry-run now
+fetch all enabled sources with the ETag cache, filter, print kept signals; run sends only a status line
+to Telegram until the digest exists. 87 tests.
 
 ## Next
-Session 12: regex funding pre-filter + 24-hour window (published + source.lag_hours; decide how undated
-signals are treated). Keep "X raises $Ym Series A/seed"; drop IPOs, acquisitions, stake sales/block deals,
-layoffs, fund closes. Patterns and window hours live in config with defaults.
-Then: cross-source dedupe, Telegram digest, cron schedule "17 2,7,11,15 * * *". Goal: schedule live before 2026-12-28.
+Session 13: cross-source dedupe (same story from inc42 + inc42_buzz, and Google News vs direct feed):
+normalise link + title, remember seen signals in a state table so the next run never re-sends them.
+Then: Telegram digest of kept signals, cron schedule "17 2,7,11,15 * * *". Goal: schedule live before 2026-12-28.

@@ -7,8 +7,9 @@ import httpx
 
 from anvesh import __version__
 from anvesh.check import run_check
-from anvesh.config import ConfigError, load_settings, load_sources
+from anvesh.config import ConfigError, load_filters, load_settings, load_sources
 from anvesh.http import Http
+from anvesh.pipeline import run_pass, summary_line
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
 
@@ -50,20 +51,38 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     try:
         settings = load_settings(config_dir)
+        sources = load_sources(config_dir)
+        filters = load_filters(config_dir)
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     state = State(state_dir, read_only=dry_run)
     runs = state.table("runs")
-    previous = max(runs.records, default=None)
     now = utc_now()
-    runs.upsert(to_iso(now), {"version": __version__, "dry_run": dry_run}, now=now)
+    http = Http(cache=state.table("http_cache"), settings=settings.http)
 
-    message = (
-        f"anvesh {__version__} alive\n"
-        f"runs recorded: {len(runs)}\n"
-        f"previous run: {previous or 'none (first run)'}"
+    collected, result = run_pass(sources, filters, http, now, settings.google_news.language)
+    summary = summary_line(collected, result)
+    runs.upsert(
+        to_iso(now),
+        {
+            "version": __version__,
+            "dry_run": dry_run,
+            "fetched": len(collected.signals),
+            "kept": len(result.kept),
+            "dropped": dict(result.dropped),
+            "failed": collected.failed,
+        },
+        now=now,
     )
+    for _, error in sorted(collected.failed.items()):
+        print(f"FAIL {error}", file=sys.stderr)
+    print(summary)
+    for signal in result.kept:
+        print(f"  [{signal.source}] {signal.title}\n    {signal.link}")
+
+    # Until the digest is built (Session 13), run sends only this status message.
+    message = f"anvesh {__version__}\n{summary}"
     if dry_run:
         print(f"[dry-run] would send to Telegram:\n{message}")
         return 0
@@ -74,7 +93,7 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
         return 1
     finally:
         state.save(settings.state.retention_days)
-    print("sent alive message to Telegram")
+    print("sent status message to Telegram")
     return 0
 
 
