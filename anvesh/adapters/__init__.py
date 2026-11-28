@@ -7,11 +7,14 @@ from anvesh.http import Http
 from anvesh.signals import Signal
 
 
+IMPLEMENTED = ("rss", "google_news")  # adapters fetch() can run today
+
+
 def fetch(source: Source, http: Http, language: str = "en") -> list[Signal]:
     """Fetch one source and return its signals. Raises SourceError if the source is broken."""
-    if source.adapter in ("rss", "google_news"):
+    if source.adapter in IMPLEMENTED:
         return fetch_feed(source, http, language)
     raise SourceError(f"{source.name}: adapter '{source.adapter}' is not implemented yet")
 
 
-__all__ = ["SourceError", "fetch"]
+__all__ = ["IMPLEMENTED", "SourceError", "fetch"]

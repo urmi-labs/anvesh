@@ -90,6 +90,8 @@ KEEP = [
     "Kabeer Biswas’ M Raises $9 Mn Led By RTP Global",
     "Sqwish Labs Raises $3M in Pre-Seed Funding",
     "WaterSense Raises €5.75M in Pre-Seed Funding",
+    "Green Aero Raises $14 Million Series A to Develop Indigenous Jet Engines and Autonomous Aircraft",
+    "Tabu Ventures backs anorectal-health startup Polari Labs in seed round",
 ]
 DROP = [
     ("Swiggy IPO opens for subscription today", EXCLUDED),
@@ -101,6 +103,7 @@ DROP = [
     ("From Finnable To M — Indian Startups Raised About $147 Mn This Week", EXCLUDED),
     ("[Weekly funding roundup Nov 21-27] VC inflow dips on modest deal activity", EXCLUDED),
     ("Funding Galore: Indian startups raise $200 Mn", EXCLUDED),
+    ("Funding Wrap: Matters.AI, Vegapay, Green Aero raise fresh capital", EXCLUDED),
     ("Paytm Q2 results: revenue up 10%", NOT_FUNDING),
     ("Ten tips for writing a pitch deck", NOT_FUNDING),
 ]

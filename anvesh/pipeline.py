@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from anvesh.adapters import SourceError, fetch
+from anvesh.adapters import IMPLEMENTED, SourceError, fetch
 from anvesh.config import FiltersConfig, SourcesConfig
 from anvesh.filters import FilterResult, apply_filters
 from anvesh.http import Http
@@ -23,9 +23,16 @@ class Collected:
 
 
 def collect(sources: SourcesConfig, http: Http, language: str = "en") -> Collected:
-    """Fetch every enabled source. Sources missing a needed env var are skipped, not failed."""
+    """Fetch every enabled source.
+
+    Skipped (not failed): sources missing a needed env var, and sources whose adapter
+    is not built yet. "failed" is kept for real breakage, so it stays worth reading.
+    """
     out = Collected()
     for source in sources.enabled():
+        if source.adapter not in IMPLEMENTED:
+            out.skipped[source.name] = f"adapter '{source.adapter}' not built yet"
+            continue
         missing = [name for name in source.needs if not os.environ.get(name)]
         if missing:
             out.skipped[source.name] = f"needs {', '.join(missing)}"

@@ -55,9 +55,14 @@ Excludes IPO/listing, M&A, stake sales/block deals, layoffs/shutdowns, VC fund c
 Live-checked on 6 sources: 0 misses, roundup false positive fixed. anvesh/pipeline.py (collect: broken
 source never stops the run, missing `needs` env = skipped; run_pass; summary_line). run / dry-run now
 fetch all enabled sources with the ETag cache, filter, print kept signals; run sends only a status line
-to Telegram until the digest exists. 87 tests.
+to Telegram until the digest exists. Sources whose adapter is not built (json_api) are reported as skipped,
+not failed. Full dry-run on private config: 468 fetched, 120 kept, but only ~35 distinct stories
+(gnews_funding repeats each link per region; same raise also via finsmes/eu_startups/inc42). Non-tech raises
+(pet food, beverages) pass the regex on purpose; the later classification step drops them. 90 tests.
 
 ## Next
-Session 13: cross-source dedupe (same story from inc42 + inc42_buzz, and Google News vs direct feed):
-normalise link + title, remember seen signals in a state table so the next run never re-sends them.
+Session 13: dedupe in two layers. (1) same link within one run (gnews_funding regions); (2) same story
+across sources (inc42 + inc42_buzz, finsmes + eu_startups + Google News titles that differ in wording):
+normalised title / company + amount key. Remember seen keys in a state table so the next run never
+re-sends them. Target on the 2026-11-28 sample: 120 kept -> ~35.
 Then: Telegram digest of kept signals, cron schedule "17 2,7,11,15 * * *". Goal: schedule live before 2026-12-28.

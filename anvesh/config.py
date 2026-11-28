@@ -141,7 +141,7 @@ DEFAULT_EXCLUDE = [
     r"\blay(s|ing)? off\b|\blayoffs?\b|\bjob cuts?\b|\bshuts? down\b",
     r"\b(closes?|closed|launch(es|ed)?|announces?|unveils?)\b.*\bfund\b",
     r"\bfund (i|ii|iii|iv|v|vi)\b|\bvc fund\b|\bcorpus\b",
-    r"\b(this|last) week\b|\bweekly\b|\bround-?ups?\b|\bfunding galore\b|\bstartups (raised|raise)\b",
+    r"\b(this|last) week\b|\bweekly\b|\bround-?ups?\b|\b(funding|deal|weekly) wrap\b|\bfunding galore\b|\bstartups (raised|raise)\b",
 ]
 
 
