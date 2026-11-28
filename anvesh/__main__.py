@@ -11,7 +11,7 @@ from anvesh.config import ConfigError, load_filters, load_settings, load_sources
 from anvesh.http import Http
 from anvesh.dedupe import SeenStories
 from anvesh.digest import build_messages, deliver, visible_length
-from anvesh.pipeline import run_pass, summary_line
+from anvesh.pipeline import all_sources_failed, run_pass, summary_line
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
 
@@ -82,6 +82,10 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     for _, error in sorted(result.collected.failed.items()):
         print(f"FAIL {error}", file=sys.stderr)
     print(summary_line(result))
+    blind = all_sources_failed(result.collected)
+    if blind:
+        print(f"error: all {len(result.collected.failed)} sources failed; exit code 1 so the workflow alerts",
+              file=sys.stderr)
 
     counts = {
         "new": len(result.new),
@@ -96,7 +100,7 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
                   f"{len(message.stories)} stories) would be sent:\n{message.text}")
         if not messages:
             print("[dry-run] nothing new, nothing would be sent")
-        return 0
+        return 1 if blind else 0
 
     try:
         telegram = Telegram.from_env() if messages else None
@@ -118,7 +122,7 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
         print(f"sent {len(messages)} message(s), {delivered} stories")
     else:
         print("nothing new, nothing sent")
-    return 0
+    return 1 if blind else 0
 
 
 def cmd_check_sources(config_dir: str, include_disabled: bool) -> int:

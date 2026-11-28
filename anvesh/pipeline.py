@@ -19,6 +19,7 @@ from anvesh.signals import Signal
 @dataclass
 class Collected:
     signals: list[Signal] = field(default_factory=list)
+    ok: list[str] = field(default_factory=list)  # sources that answered (304 "unchanged" counts)
     failed: dict[str, str] = field(default_factory=dict)  # source name -> error
     skipped: dict[str, str] = field(default_factory=dict)  # source name -> why
 
@@ -40,9 +41,16 @@ def collect(sources: SourcesConfig, http: Http, language: str = "en") -> Collect
             continue
         try:
             out.signals.extend(fetch(source, http, language))
+            out.ok.append(source.name)
         except SourceError as exc:
             out.failed[source.name] = str(exc)
     return out
+
+
+def all_sources_failed(collected: Collected) -> bool:
+    """True when sources were tried and not one answered: the run saw nothing, so it must not
+    look like a quiet day. (Sources that answered 304 "unchanged" give no signals but did work.)"""
+    return bool(collected.failed) and not collected.ok
 
 
 @dataclass

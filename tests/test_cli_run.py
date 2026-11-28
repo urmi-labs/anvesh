@@ -63,3 +63,15 @@ def test_dry_run_prints_digest_and_writes_nothing(monkeypatch, tmp_path, capsys)
     assert "[dry-run] message 1/1" in out and "Acme raises $5M seed round" in out
     assert FakeTelegram.sent == []
     assert not (tmp_path / "state").exists()
+
+
+def test_run_exits_1_when_every_source_fails(monkeypatch, tmp_path, capsys):
+    setup(monkeypatch, tmp_path)
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(403, text="blocked")))
+    real_http = Http
+    monkeypatch.setattr(cli, "Http", lambda **kw: real_http(client=client, user_agent="t", sleep=lambda s: None, **kw))
+    args = ["--config", str(tmp_path), "--state-dir", str(tmp_path / "state")]
+    assert cli.main(["run", *args]) == 1
+    assert cli.main(["dry-run", *args]) == 1
+    assert "all 1 sources failed" in capsys.readouterr().err
+    assert FakeTelegram.sent == []

@@ -59,3 +59,12 @@ def test_run_pass_skips_stories_seen_in_earlier_runs(tmp_path):
         seen.remember(story, now=NOW)
     second = run_pass(sources, FiltersConfig(), make_http(), NOW, seen)
     assert second.new == [] and second.already_seen == 1
+
+
+def test_all_sources_failed_only_when_none_answered():
+    from anvesh.pipeline import Collected, all_sources_failed
+
+    assert all_sources_failed(Collected(failed={"a": "a: HTTP 403", "b": "b: ConnectError"}))
+    assert not all_sources_failed(Collected(ok=["c"], failed={"a": "a: HTTP 403"}))  # one worked
+    assert not all_sources_failed(Collected(ok=["c"]))  # 304 / quiet day: ok, no signals
+    assert not all_sources_failed(Collected(skipped={"d": "needs KEY"}))  # nothing was tried

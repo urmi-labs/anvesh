@@ -79,11 +79,18 @@ with split=False, remember its stories only after it went out; stops at first fa
 twice). run: missing Telegram secrets = exit 1 without saving state; saves runs.delivered/held_back.
 LIVE 2026-11-28 via private workflow: 31 stories in 1 Telegram message; second run 0 new / 30 seen, nothing
 sent. eu_startups 403 from Actions -> google_news. 128 tests.
+Session 15 (2026-11-28): Collected.ok lists sources that answered (304 counts); all_sources_failed() ->
+run / dry-run exit 1 (a blind run must not look like a quiet day). Private radar.yml: schedule
+"17 2,7,11,15 * * *" (07:47/12:47/16:47/20:47 IST) + workflow_dispatch with a test_alert input that fails
+on purpose; existing concurrency group radar (cancel-in-progress false) stops overlapping runs on the
+state branch; last step "Alert on failure" (if: failure(), plain curl, works even if install broke) sends
+one Telegram line with the run URL. 130 tests.
 
 ## Next
-Session 15: turn on the cron schedule "17 2,7,11,15 * * *" in ../anvesh-data/.github/workflows/radar.yml
-(keep workflow_dispatch), concurrency group so two runs never overlap on the state branch, and a failure
-alert (workflow failure or every source failing -> one plain Telegram line). Watch the first scheduled runs.
-Goal: schedule live before 2026-12-28.
-Later: json_api adapter (8 sources skipped), tech-only classification (drops pet food, beverages),
-region per story instead of per source (Indian raises via gnews_funding show as GLOBAL).
+Watch the first scheduled runs (gh run list -R Adityapradhan14/anvesh-data --workflow=radar.yml): start
+times (GitHub can be 5-30 min late), digest arrives, no duplicates across runs, state branch commits.
+Session 16 candidates, pick by what the first days of digests show:
+- region per story instead of per source (Indian raises via gnews_funding show as GLOBAL)
+- tech-only classification (drops pet food, beverages, govt grants)
+- json_api adapter (8 sources skipped: HN jobs/launches, YC, remote job boards)
+Goal: schedule live before 2026-12-28 (done 2026-11-28 if the first scheduled runs are clean).
