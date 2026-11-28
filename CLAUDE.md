@@ -39,6 +39,44 @@ Runs on GitHub Actions free tier. No paid APIs.
   GitHub Actions IPs, so always test a new direct feed with a workflow run, not just from home). SEC Form D disabled until Phase 4 (403 with our User-Agent).
 - Added sources: hn_jobs, hn_launches.
 
+## Agreed product design (2026-11-28, decided with the maintainer; overrides the design doc where different)
+Profile (profile.yaml, filled by `anvesh init`, editable later):
+- Users answer questions, never write regex. Required: roles (built-in role FAMILIES: devops, sre, platform,
+  cloud, security, backend, frontend, fullstack, mobile, data, ml, mlops, qa, design, product, sales, support),
+  experience_years, based_in (country), locations (countries and/or "remote"), visa (bool).
+  Optional (`init --detailed`, Enter skips): stack (tools), work_mode, company_stage, avoid_industries,
+  avoid_companies, min_salary. Optional `advanced:` keep/exclude words for power users (e.g. mlops keep).
+- Role families: a title matching a family the user did NOT pick is dropped (no exclude list to write).
+  Seniority derives from experience_years (1 -> drop Senior/Staff/Lead/Principal/II/III and >2 years asked).
+- `anvesh explain "<title>"` says why a title is kept or dropped. Typos: "did you mean devops?".
+anvesh init (terminal, no LLM): 5 essentials (roles, experience, country, where to work, visa), then optional
+  details (stack, work mode, company stage, industries/companies to avoid, salary), then Telegram setup
+  (hidden token input, find chat id, test message, `gh secret set`, commit+push profile). Each answer echoes
+  its effect (✓ ...). Re-run uses current answers as defaults; `anvesh profile` / `anvesh profile set k v`.
+  Later options: Telegram interview with buttons (needs the Worker), free-text via user's own free LLM key.
+Salary: min_salary is a LIST of {currency, amount, period(year|month)}; user picks the currency, no FX
+  conversion, no margins. Compare only jobs in a currency the user set (top of the job's range, same period;
+  month x12, hour x2080). Other currency -> pass, show salary as stated "(no USD minimum set)". Not stated ->
+  pass, "Salary: not stated". init offers a minimum for a new currency when a country is added.
+Location: countries + "remote" only, NO cities. Remote jobs restricted elsewhere ("Remote (US only)",
+  "must reside in EU") are dropped for users based elsewhere; worldwide/APAC/own-country remote passes;
+  unclear location passes and is shown as written. Abroad onsite only if visa allows and the job sponsors.
+Company enrichment (after jobs reach Telegram): per funded startup show name, what it does, website, careers
+  page + open roles (ATS detection, matches marked), and 2-3 people (founder, hiring/talent lead, technical)
+  each with title, email + label, LinkedIn button. "Find before guess": company site team/about/contact,
+  company GitHub commit emails, the article, personal site/HN/X; then pattern guess (learn the pattern from
+  any found email; check the domain has MX). LinkedIn = search link by default (never scrape LinkedIn);
+  exact profile URL only via a search API free quota if one exists at build time. Optional user-provided
+  key for a paid provider (e.g. Hunter) / free verifier quota, off by default.
+HARD RULE, emails: every email is shown with how it was found and is never presented as more than it is:
+  "found on <exact page>" | "verified by <service>" (only with the user's key) | "⚠️ guessed, not verified"
+  (fixed text, not configurable) | "LinkedIn only" when no email. Guessed addresses are never sent to
+  automatically; Phase 3b drafts to a guessed address require explicit confirmation with the warning shown.
+  A test fails the build if any email renders without its label. README states Anvesh has no contact
+  database. (Antijob shows "Checked" emails from paid data; we cannot match that for free and must not pretend.)
+Freshness stays the differentiator: Antijob listed matches posted 5-47 days ago; Anvesh keeps the 24h rule
+  for jobs (funding news window is 36h in the maintainer's private filters.yaml).
+
 ## Status
 Phase 0 done (2026-11-27): telegram.py, state.py, http.py, config.py, check.py, CLI with run / dry-run /
 check-sources / report. 28 sources, 0 failing. Private workflow runs manually and saves state.
@@ -102,13 +140,15 @@ counted in the summary ("held (no role filter yet): job=N launch=N"); dry-run pr
 source to check mappings. Nothing from jobs is sent yet. 165 tests.
 
 ## Next
-Session 18: role filter + hard rules for kind job (design doc p.7-10, "Role filter", "Latest only",
-"Hard rules: date and experience"). New profile.yaml (config, example, test): include / exclude / keep /
-senior / years patterns, max_years_experience (1), max_age_hours (24), allow_senior_as_stretch false.
-Order: exclude unless keep -> include -> senior title words (incl. II/III, SDE 2) + years parsed from title
-and summary ("3+ years", "3-5 yrs", "at least three years"; number within 6 words of experience/exp) ->
-date (posted, else first seen; no date and not first seen in window = drop). tests/test_hard_rules.py with
-the recorded cases listed in the design doc. Every drop recorded with gate + matched word (excluded table).
-Then Session 19: jobs into the digest (own section), first-run-of-a-source stays silent, repost check.
+Session 18a: profile.yaml per "Agreed product design" (all fields; only roles + experience_years used yet),
+built-in role families catalogue, title filter (family match, user's families kept, others dropped,
+advanced keep/exclude, senior title words incl. II/III/SDE 2 derived from experience_years), `anvesh explain`,
+dry-run shows how many held jobs pass and why others dropped. Example profile is role-neutral.
+Session 18b: hard rules: years parsed from title+summary ("3+ years", "3-5 yrs", "at least three years";
+number within 6 words of experience/exp), 24h date rule (posted, else first seen; no date and not first seen
+in window = drop), tests/test_hard_rules.py with the design doc's recorded cases, every drop recorded with
+gate + matched word (excluded table).
+Session 19: jobs into the digest (own section), first-run-of-a-source stays silent, repost check.
+Session 20: `anvesh init` / `anvesh profile`. Then company enrichment, then salary + location sessions.
 Watch: first scheduled runs; check held job samples in dry-run look right (field mappings untested live).
 Later: region per story (Indian raises via gnews_funding show as GLOBAL); yc_hiring diff; hn_whoishiring.
