@@ -96,12 +96,6 @@ def test_bad_status_is_a_source_error():
         fetch(RSS_SOURCE, http)
 
 
-def test_json_api_not_implemented_yet():
-    source = Source(name="hn", adapter="json_api", url="https://x")
-    with pytest.raises(SourceError, match="not implemented yet"):
-        fetch(source, make_http(lambda r: httpx.Response(200)))
-
-
 def test_empty_feed_is_not_an_error():
     empty = b'<?xml version="1.0"?><rss version="2.0"><channel><title>x</title></channel></rss>'
     assert parse_feed(RSS_SOURCE, empty) == []

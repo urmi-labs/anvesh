@@ -95,6 +95,13 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     }
     messages, held_back = build_messages(result.new, counts, settings.digest)
     if dry_run:
+        shown: dict[str, int] = {}
+        for signal in result.held:  # 3 samples per held source, to check the field mapping
+            if shown.get(signal.source, 0) < 3:
+                shown[signal.source] = shown.get(signal.source, 0) + 1
+                company = f" · {signal.company}" if signal.company else ""
+                print(f"[dry-run] held {signal.kind} [{signal.source}] {signal.title}{company} · "
+                      f"{signal.published or 'no date'}\n    {signal.link}")
         for story in result.sector.dropped:
             print(f"[dry-run] not tech, dropped: [{story.signal.source}] {story.signal.title}")
         for number, message in enumerate(messages, 1):

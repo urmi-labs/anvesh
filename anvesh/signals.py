@@ -12,6 +12,8 @@ class Signal:
     published: str | None  # UTC ISO time (state.to_iso), None if the feed gave no date
     region: str  # what the source covers (IN, US, EU, GLOBAL, REMOTE ...)
     summary: str = ""  # plain-text description from the feed, may be empty
+    kind: str = "funding"  # funding | job | launch, from the source's `kind` in sources.yaml
+    company: str = ""  # job sources name the company directly; empty for news
 
     def to_dict(self) -> dict:
         return asdict(self)

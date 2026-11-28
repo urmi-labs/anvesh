@@ -14,11 +14,31 @@ class ConfigError(RuntimeError):
     """Raised when a config file is missing or invalid. The message says which field is wrong."""
 
 
+class JsonFields(BaseModel):
+    """json_api: which field of each record holds what. Names are the API's own keys."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    link: str | None = None
+    link_template: str | None = None  # e.g. "https://news.ycombinator.com/item?id={objectID}"
+    company: str | None = None
+    published: str | None = None  # the POSTED / created date; never an updated/modified field
+    summary: str | None = None
+
+    @model_validator(mode="after")
+    def has_a_link(self) -> "JsonFields":
+        if not self.link and not self.link_template:
+            raise ValueError("fields need link or link_template")
+        return self
+
+
 class Source(BaseModel):
     model_config = ConfigDict(extra="forbid")  # a typo in a field name is an error, not ignored
 
     name: str = Field(pattern=r"^[a-z0-9_]+$")
     adapter: Literal["rss", "json_api", "google_news"]
+    kind: Literal["funding", "job", "launch"] = "funding"  # funding goes to the digest; others held for now
     url: str | None = None  # rss and json_api
     query: str | None = None  # google_news
     regions: list[str] = ["IN"]  # google_news: one feed per region
@@ -30,6 +50,8 @@ class Source(BaseModel):
     needs: list[str] = []  # environment variables this source cannot run without
     lag_hours: int = 0  # source publishes late; added to the 24-hour limit
     min_interval_minutes: int = 0  # source's own limit on how often it may be read
+    items: str = ""  # json_api: dotted path to the list of records ("jobs", "data", "hits"); "" = top level
+    fields: JsonFields | None = None  # json_api: field mapping
     notes: str = ""
 
     @model_validator(mode="after")
@@ -39,6 +61,8 @@ class Source(BaseModel):
                 raise ValueError("google_news sources need a query")
         elif not self.url:
             raise ValueError(f"{self.adapter} sources need a url")
+        if self.adapter == "json_api" and self.enabled and self.fields is None:
+            raise ValueError("json_api sources need `fields` (at least title and link or link_template)")
         return self
 
     def requests(self, language: str = "en") -> list[tuple[str, str, dict | None]]:

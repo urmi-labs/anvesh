@@ -57,6 +57,7 @@ def parse_feed(source: Source, content: bytes) -> list[Signal]:
                 published=_published(entry),
                 region=source.region,
                 summary="" if google_news else clean_text(entry.get("summary")),
+                kind=source.kind,
             )
         )
     return signals

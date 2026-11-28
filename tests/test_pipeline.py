@@ -36,15 +36,14 @@ def test_run_pass_keeps_fresh_funding_and_survives_broken_sources(monkeypatch):
         {"name": "blocked", "adapter": "rss", "url": "https://blocked.example/feed"},
         {"name": "keyed", "adapter": "rss", "url": "https://good.example/k", "needs": ["SOME_KEY"]},
         {"name": "off", "adapter": "rss", "url": "https://good.example/off", "enabled": False},
-        {"name": "api", "adapter": "json_api", "url": "https://good.example/api"},
     ]})
     result = run_pass(sources, FiltersConfig(), make_http(), NOW)
     assert [s.title for s in result.filtered.kept] == ["Acme raises $5M seed round"]
     assert dict(result.filtered.dropped) == {"excluded": 1, "too_old": 1}
     assert result.collected.failed == {"blocked": "blocked: HTTP 403"}
-    assert result.collected.skipped == {"keyed": "needs SOME_KEY", "api": "adapter 'json_api' not built yet"}
+    assert result.collected.skipped == {"keyed": "needs SOME_KEY"}
     line = summary_line(result)
-    assert "fetched 3 signals from 1 sources (1 failed, 2 skipped); kept 1" in line
+    assert "fetched 3 signals from 1 sources (1 failed, 1 skipped); kept 1" in line
     assert line.endswith("1 stories, 0 not tech (1 new, 0 already seen)")
 
 
@@ -68,3 +67,17 @@ def test_all_sources_failed_only_when_none_answered():
     assert not all_sources_failed(Collected(ok=["c"], failed={"a": "a: HTTP 403"}))  # one worked
     assert not all_sources_failed(Collected(ok=["c"]))  # 304 / quiet day: ok, no signals
     assert not all_sources_failed(Collected(skipped={"d": "needs KEY"}))  # nothing was tried
+
+
+def test_job_signals_are_held_not_sent():
+    from anvesh.signals import Signal
+
+    sources = SourcesConfig.model_validate({"sources": [
+        {"name": "good", "adapter": "rss", "url": "https://good.example/feed"},
+        {"name": "jobs", "adapter": "rss", "url": "https://good.example/jobs", "kind": "job"},
+    ]})
+    result = run_pass(sources, FiltersConfig(), make_http(), NOW)
+    assert [s.title for s in result.filtered.kept] == ["Acme raises $5M seed round"]  # only from `good`
+    assert {s.source for s in result.held} == {"jobs"} and all(s.kind == "job" for s in result.held)
+    assert summary_line(result).endswith("; held (no role filter yet): job=3")
+    assert all(isinstance(s, Signal) for s in result.held)

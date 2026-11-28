@@ -91,12 +91,24 @@ tech wins over non_tech; only non_tech is dropped; unknown kept by default. Pass
 dry-run lists "not tech, dropped" lines; summary shows "N stories, M not tech". Funding exclude now also
 drops government grants. On the 2026-11-28 fixture: drops exactly pet food, protein water, period products;
 0 tech misclassified. 144 tests.
+Session 17 (2026-11-28): Source.kind funding|job|launch (default funding); Signal.kind + Signal.company.
+anvesh/adapters/json_api.py: generic, driven by sources.yaml `items` (dotted path, "" = top-level list) and
+`fields` (title, link or link_template, company, published, summary; published must be the POSTED date).
+parse_date: ISO / RFC 2822 / epoch s or ms, naive = UTC, unreadable or >1h in the future = missing.
+Enabled json_api without fields = config error. Mappings for remoteok, jobicy, arbeitnow(_uk), hn_jobs,
+hn_launches; yc_hiring (needs a daily diff) and hn_whoishiring (jobs are comments) disabled. wwr_devops is
+kind job. Pipeline: only kind funding goes to filters/dedupe/sector/digest; job + launch go to Pass.held,
+counted in the summary ("held (no role filter yet): job=N launch=N"); dry-run prints 3 samples per held
+source to check mappings. Nothing from jobs is sent yet. 165 tests.
 
 ## Next
-Watch the first scheduled runs (gh run list -R Adityapradhan14/anvesh-data --workflow=radar.yml): start
-times (GitHub can be 5-30 min late), digest arrives, no duplicates across runs, state branch commits.
-Tune sector lists from the "not tech, dropped" lines in dry-run if a real tech startup is dropped.
-Session 17 candidates, pick by what the first days of digests show:
-- region per story instead of per source (Indian raises via gnews_funding show as GLOBAL)
-- json_api adapter (8 sources skipped: HN jobs/launches, YC, remote job boards) - first step toward roles
-Goal: schedule live before 2026-12-28 (done 2026-11-28 if the first scheduled runs are clean).
+Session 18: role filter + hard rules for kind job (design doc p.7-10, "Role filter", "Latest only",
+"Hard rules: date and experience"). New profile.yaml (config, example, test): include / exclude / keep /
+senior / years patterns, max_years_experience (1), max_age_hours (24), allow_senior_as_stretch false.
+Order: exclude unless keep -> include -> senior title words (incl. II/III, SDE 2) + years parsed from title
+and summary ("3+ years", "3-5 yrs", "at least three years"; number within 6 words of experience/exp) ->
+date (posted, else first seen; no date and not first seen in window = drop). tests/test_hard_rules.py with
+the recorded cases listed in the design doc. Every drop recorded with gate + matched word (excluded table).
+Then Session 19: jobs into the digest (own section), first-run-of-a-source stays silent, repost check.
+Watch: first scheduled runs; check held job samples in dry-run look right (field mappings untested live).
+Later: region per story (Indian raises via gnews_funding show as GLOBAL); yc_hiring diff; hn_whoishiring.

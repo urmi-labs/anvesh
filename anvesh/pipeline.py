@@ -5,6 +5,7 @@ the run: its error is recorded and the other sources still run.
 """
 
 import os
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -59,6 +60,7 @@ class Pass:
     """Everything one run found, step by step."""
 
     collected: Collected
+    held: list[Signal]  # job and launch signals: fetched and counted, not sent until the role filter exists
     filtered: FilterResult
     stories: list[Story]  # after dedupe
     sector: SectorResult  # tech kept / not-tech dropped
@@ -76,11 +78,13 @@ def run_pass(
 ) -> Pass:
     """fetch -> 24h + funding filter -> dedupe -> tech only -> drop stories delivered before."""
     collected = collect(sources, http, language)
-    filtered = apply_filters(collected.signals, sources.sources, filters, now)
+    funding = [s for s in collected.signals if s.kind == "funding"]
+    held = [s for s in collected.signals if s.kind != "funding"]
+    filtered = apply_filters(funding, sources.sources, filters, now)
     stories = dedupe(filtered.kept, filters.dedupe)
     sector = filter_sector(stories, filters.sector)
     new = [s for s in sector.kept if seen is None or seen.match(s) is None]
-    return Pass(collected, filtered, stories, sector, new, len(sector.kept) - len(new))
+    return Pass(collected, held, filtered, stories, sector, new, len(sector.kept) - len(new))
 
 
 def summary_line(p: Pass) -> str:
@@ -89,10 +93,12 @@ def summary_line(p: Pass) -> str:
     collected, result = p.collected, p.filtered
     ok = len({s.source for s in collected.signals})
     drops = " ".join(f"{reason}={n}" for reason, n in sorted(result.dropped.items())) or "none"
+    held = Counter(s.kind for s in p.held)
+    held_text = f"; held (no role filter yet): {' '.join(f'{k}={n}' for k, n in sorted(held.items()))}" if held else ""
     return (
         f"fetched {len(collected.signals)} signals from {ok} sources "
         f"({len(collected.failed)} failed, {len(collected.skipped)} skipped); "
         f"kept {len(result.kept)}; dropped {drops}; "
         f"{len(p.stories)} stories, {len(p.sector.dropped)} not tech "
-        f"({len(p.new)} new, {p.already_seen} already seen)"
+        f"({len(p.new)} new, {p.already_seen} already seen){held_text}"
     )

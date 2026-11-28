@@ -6,6 +6,11 @@
 # priority:  P1 goes live first, P2 and P3 later
 # needs:     environment variables (secrets) the source cannot run without
 # lag_hours: the source publishes late, so its 24-hour limit is widened by this much
+# kind:      funding (default; goes through the funding filter to the digest) | job | launch
+#            (job and launch are fetched and counted but held back until the role filter exists)
+# items, fields: json_api only. items = dotted path to the record list ("" = the reply is the list);
+#            fields maps title / link or link_template / company / published / summary to the API's
+#            own keys. published must be the POSTED date, never an updated or modified field.
 #
 # Careful: YAML reads bare words like on, off, yes, no as true/false. Quote them if you mean text.
 
@@ -118,13 +123,16 @@ sources:
     url: "https://yc-oss.github.io/api/companies/hiring.json"
     region: GLOBAL
     status: documented
-    notes: "Unofficial, rebuilt daily. Diff against yesterday's list"
+    enabled: false
+    notes: "Unofficial, rebuilt daily. A company list, not posts: needs a diff against yesterday's list (later phase)"
 
   - name: hn_whoishiring
     adapter: json_api
     url: "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring"
     region: GLOBAL
     status: documented
+    enabled: false
+    notes: "Finds the monthly thread; the jobs are its comments, which need their own adapter (later phase)"
 
   - name: sec_formd
     adapter: json_api
@@ -142,6 +150,9 @@ sources:
     region: REMOTE
     status: documented
     lag_hours: 24
+    kind: job
+    items: ""                     # the reply is a list; record 0 is a legal notice and is skipped
+    fields: {title: position, company: company, link: url, published: date, summary: description}
     notes: "Credit Remote OK and link back to each listing"
 
   - name: jobicy
@@ -149,6 +160,9 @@ sources:
     url: "https://jobicy.com/api/v2/remote-jobs"
     region: REMOTE
     min_interval_minutes: 60
+    kind: job
+    items: jobs
+    fields: {title: jobTitle, company: companyName, link: url, published: pubDate, summary: jobExcerpt}
     notes: "At most one check an hour, keep attribution"
 
   - name: arbeitnow
@@ -156,6 +170,9 @@ sources:
     url: "https://www.arbeitnow.com/api/job-board-api"
     region: EU
     status: documented
+    kind: job
+    items: data
+    fields: {title: title, company: company_name, link: url, published: created_at, summary: description}
     notes: "visa_sponsorship=true parameter reportedly does not filter; detect from text"
 
   - name: arbeitnow_uk
@@ -163,21 +180,31 @@ sources:
     url: "https://www.arbeitnow.co.uk/api/job-board-api"
     region: GB
     status: documented
+    kind: job
+    items: data
+    fields: {title: title, company: company_name, link: url, published: created_at, summary: description}
 
   - name: wwr_devops
     adapter: rss
     url: "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss"
     region: REMOTE
+    kind: job
     notes: "Example category. Swap the URL for the WWR category that matches your role"
 
   - name: hn_jobs
     adapter: json_api
     url: "https://hn.algolia.com/api/v1/search_by_date?tags=job"
     region: GLOBAL
+    kind: job
+    items: hits
+    fields: {title: title, link_template: "https://news.ycombinator.com/item?id={objectID}", published: created_at, summary: story_text}
     notes: "Job ads posted directly on Hacker News, mostly by YC startups"
 
   - name: hn_launches
     adapter: json_api
     url: "https://hn.algolia.com/api/v1/search_by_date?query=%22Launch%20HN%22&tags=story&restrictSearchableAttributes=title"
     region: GLOBAL
+    kind: launch
+    items: hits
+    fields: {title: title, link_template: "https://news.ycombinator.com/item?id={objectID}", published: created_at, summary: story_text}
     notes: "YC startups announcing launch, often near their seed round; a funded-no-job-post signal"

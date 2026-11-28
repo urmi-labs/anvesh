@@ -4,6 +4,7 @@ from anvesh.check import count_json_items, run_check
 from anvesh.config import SourcesConfig
 from anvesh.http import Http
 
+FIELDS = {"title": "title", "link": "url"}
 RSS = '<?xml version="1.0"?><rss><channel><item>a</item><item>b</item></channel></rss>'
 EMPTY_RSS = '<?xml version="1.0"?><rss><channel></channel></rss>'
 
@@ -28,9 +29,9 @@ def test_verdicts_for_each_kind_of_reply(monkeypatch):
         {"name": "empty_feed", "adapter": "rss", "url": "https://empty.com/feed"},
         {"name": "html_page", "adapter": "rss", "url": "https://html.com/feed"},
         {"name": "gone", "adapter": "rss", "url": "https://gone.com/feed"},
-        {"name": "good_api", "adapter": "json_api", "url": "https://api.com/jobs"},
-        {"name": "bad_api", "adapter": "json_api", "url": "https://bad.com/jobs"},
-        {"name": "sec", "adapter": "json_api", "url": "https://sec.gov/x", "needs": ["RADAR_CONTACT"]},
+        {"name": "good_api", "adapter": "json_api", "url": "https://api.com/jobs", "fields": FIELDS},
+        {"name": "bad_api", "adapter": "json_api", "url": "https://bad.com/jobs", "fields": FIELDS},
+        {"name": "sec", "adapter": "json_api", "url": "https://sec.gov/x", "needs": ["RADAR_CONTACT"], "fields": FIELDS},
         {"name": "paused", "adapter": "rss", "url": "https://good.com/feed", "enabled": False},
     )
     http = make_http(
