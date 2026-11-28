@@ -2,7 +2,7 @@ import httpx
 
 from anvesh.config import DigestSettings, Settings, load_settings
 from anvesh.dedupe import Story
-from anvesh.digest import build_messages, story_line
+from anvesh.digest import build_messages, story_line, visible_length
 from anvesh.signals import Signal
 from anvesh.telegram import Telegram
 
@@ -15,8 +15,9 @@ def story(title, region="IN", source="inc42", link="https://inc42.com/a", also=(
 
 
 def test_line_hides_link_behind_escaped_title():
-    line = story_line(story("R&D <AI> startup raises $5M", link="https://x.example/?a=1&b=2"), DigestSettings())
-    assert line == '• <a href="https://x.example/?a=1&amp;b=2">R&amp;D &lt;AI&gt; startup raises $5M</a> · inc42'
+    line = story_line(story("Munich's R&D <AI> startup raises $5M", link="https://x.example/?a=1&b=2"), DigestSettings())
+    assert line == ('• <a href="https://x.example/?a=1&amp;b=2">Munich\'s R&amp;D &lt;AI&gt; startup raises $5M</a>'
+                    " · inc42")
 
 
 def test_line_counts_other_sources():
@@ -42,12 +43,24 @@ def test_ungrouped_keeps_source_order():
     assert [s.signal.title for s in msg.stories] == ["A raises", "B raises"]
 
 
-def test_long_digest_splits_and_every_story_lands_in_exactly_one_message():
+def test_hidden_links_do_not_count_toward_the_limit():
     stories = [story(f"Startup{i} raises $5M seed round", link=f"https://news.google.com/rss/articles/{'x' * 300}{i}")
                for i in range(40)]
+    [msg], _ = build_messages(stories, COUNTS, DigestSettings())  # ~13,000 raw chars, ~1,700 visible
+    assert len(msg.text) > 4096 and visible_length(msg.text) < 4096
+    assert len(msg.stories) == 40
+
+
+def test_visible_length_counts_like_telegram():
+    assert visible_length('<b>Hi</b> <a href="https://very.long/link">A &amp; B</a>') == len("Hi A & B")
+    assert visible_length("🚀") == 2  # UTF-16: an emoji is two units
+
+
+def test_long_digest_splits_and_every_story_lands_in_exactly_one_message():
+    stories = [story(f"Startup{i} raises a big seed round to build " + "y" * 120) for i in range(40)]
     messages, _ = build_messages(stories, COUNTS, DigestSettings())
     assert len(messages) > 1
-    assert all(len(m.text) <= 4096 for m in messages)
+    assert all(visible_length(m.text) <= 4096 for m in messages)
     assert sum(len(m.stories) for m in messages) == 40
     assert all(m.text.startswith("<b>IN</b>") for m in messages[1:])  # heading repeated
 
@@ -83,7 +96,9 @@ def test_telegram_sends_parse_mode():
     tg = Telegram("t0k", "42", client=httpx.Client(transport=httpx.MockTransport(handler)))
     tg.send("<b>hi</b>", parse_mode="HTML")
     tg.send("plain")
+    tg.send("<a href=\"x\">" + "z" * 5000 + "</a>", parse_mode="HTML", split=False)
     assert sent[0]["parse_mode"] == "HTML" and "parse_mode" not in sent[1]
+    assert len(sent) == 3 and sent[2]["text"].endswith("</a>")  # one message, tag intact
 
 
 def test_bad_header_placeholder_is_a_config_error(tmp_path):

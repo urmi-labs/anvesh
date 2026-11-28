@@ -46,12 +46,14 @@ class Telegram:
             raise TelegramError(f"missing environment variables: {', '.join(missing)}")
         return cls(token, chat_id)
 
-    def send(self, text: str, parse_mode: str | None = None) -> None:
+    def send(self, text: str, parse_mode: str | None = None, split: bool = True) -> None:
         """Send text, split into several messages if it is too long.
 
         parse_mode="HTML" lets the text use <a href>, <b>; the caller must escape everything else.
+        split=False sends text as one message: use it for HTML the caller already packed to size,
+        because split_text counts raw characters and could cut through a tag.
         """
-        for chunk in split_text(text):
+        for chunk in split_text(text) if split else [text]:
             wait = SEND_GAP_SECONDS - (time.monotonic() - self._last_sent)
             if wait > 0:
                 time.sleep(wait)

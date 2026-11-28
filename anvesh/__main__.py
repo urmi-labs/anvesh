@@ -10,7 +10,7 @@ from anvesh.check import run_check
 from anvesh.config import ConfigError, load_filters, load_settings, load_sources
 from anvesh.http import Http
 from anvesh.dedupe import SeenStories
-from anvesh.digest import build_messages, deliver
+from anvesh.digest import build_messages, deliver, visible_length
 from anvesh.pipeline import run_pass, summary_line
 from anvesh.state import State, to_iso, utc_now
 from anvesh.telegram import Telegram, TelegramError
@@ -92,7 +92,7 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
     messages, held_back = build_messages(result.new, counts, settings.digest)
     if dry_run:
         for number, message in enumerate(messages, 1):
-            print(f"\n[dry-run] message {number}/{len(messages)} ({len(message.text)} chars, "
+            print(f"\n[dry-run] message {number}/{len(messages)} ({visible_length(message.text)} chars, "
                   f"{len(message.stories)} stories) would be sent:\n{message.text}")
         if not messages:
             print("[dry-run] nothing new, nothing would be sent")
@@ -105,7 +105,7 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
         return 1  # state not saved: nothing was delivered, so this run never happened
     delivered, error = deliver(
         messages,
-        send=lambda text: telegram.send(text, parse_mode="HTML"),
+        send=lambda text: telegram.send(text, parse_mode="HTML", split=False),
         remember=lambda story: seen.remember(story, now=now),
     )
     runs.upsert(to_iso(now), {"delivered": delivered, "held_back": held_back}, now=now)

@@ -23,7 +23,7 @@ class FakeTelegram:
     def from_env(cls):
         return cls()
 
-    def send(self, text, parse_mode=None):
+    def send(self, text, parse_mode=None, split=True):
         FakeTelegram.sent.append((text, parse_mode))
 
 

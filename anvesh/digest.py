@@ -1,11 +1,13 @@
 """Turn the run's new stories into Telegram messages (HTML mode).
 
 Each story is one line: the headline is the link, so long news.google.com URLs never show as text.
-Messages are packed to at most Telegram's 4096 characters, and each Message knows which stories it
-carries, so the caller can remember exactly the stories that were delivered.
+Messages are packed to at most Telegram's 4096 characters as Telegram counts them (visible text only;
+hidden hrefs do not count), and each Message knows which stories it carries, so the caller can remember
+exactly the stories that were delivered. Send them with split=False: a raw split could cut a tag.
 """
 
 import html
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -14,6 +16,16 @@ import httpx
 from anvesh.config import DigestSettings
 from anvesh.dedupe import Story
 from anvesh.telegram import MAX_LEN, TelegramError
+
+
+TAG = re.compile(r"<[^>]+>")
+
+
+def visible_length(text: str) -> int:
+    """Length as Telegram counts it: tags and hidden hrefs removed, entities decoded,
+    in UTF-16 code units (an emoji counts 2)."""
+    plain = html.unescape(TAG.sub("", text))
+    return len(plain.encode("utf-16-le")) // 2
 
 
 @dataclass
@@ -25,10 +37,10 @@ class Message:
 def story_line(story: Story, settings: DigestSettings) -> str:
     """'• <a href="link">Headline</a> · inc42 +2'"""
     link = html.escape(story.signal.link, quote=True)
-    line = f'• <a href="{link}">{html.escape(story.signal.title)}</a>'
+    line = f'• <a href="{link}">{html.escape(story.signal.title, quote=False)}</a>'
     if settings.show_sources:
         others = len(story.also_in())
-        line += f" · {html.escape(story.signal.source)}" + (f" +{others}" if others else "")
+        line += f" · {html.escape(story.signal.source, quote=False)}" + (f" +{others}" if others else "")
     return line
 
 
@@ -44,7 +56,7 @@ def build_messages(stories: list[Story], counts: dict, settings: DigestSettings,
     if not shown and not settings.send_when_empty:
         return [], held_back
 
-    header = "<b>" + html.escape(settings.header.format(**counts)) + "</b>"
+    header = "<b>" + html.escape(settings.header.format(**counts), quote=False) + "</b>"
     if held_back:
         header += f"\n{held_back} more next run"
     if settings.group_by_region:
@@ -55,12 +67,12 @@ def build_messages(stories: list[Story], counts: dict, settings: DigestSettings,
     region = None
     for story in shown:
         line = story_line(story, settings)
-        heading = f"<b>{html.escape(story.signal.region)}</b>" if settings.group_by_region else ""
+        heading = f"<b>{html.escape(story.signal.region, quote=False)}</b>" if settings.group_by_region else ""
         new_region = settings.group_by_region and story.signal.region != region
         region = story.signal.region
         block = f"\n{heading}\n{line}" if new_region else line
         current = messages[-1]
-        if len(current.text) + 1 + len(block) > limit:
+        if visible_length(current.text) + 1 + visible_length(block) > limit:
             # start a new message; repeat the region heading so the stories keep their context
             current = Message(f"{heading}\n{line}" if heading else line)
             messages.append(current)
