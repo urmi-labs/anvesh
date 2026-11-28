@@ -59,10 +59,21 @@ to Telegram until the digest exists. Sources whose adapter is not built (json_ap
 not failed. Full dry-run on private config: 468 fetched, 120 kept, but only ~35 distinct stories
 (gnews_funding repeats each link per region; same raise also via finsmes/eu_startups/inc42). Non-tech raises
 (pet food, beverages) pass the regex on purpose; the later classification step drops them. 90 tests.
+Session 13 done (2026-11-28): anvesh/dedupe.py. Layer 1: normalise_link (lowercase host, no utm_/fbclid/
+gclid/ref, no #fragment, no trailing /), repeats dropped. Layer 2: name_words = title words minus
+dedupe.ignore_words (amounts and 's removed); amounts() parses $9 Mn / $9M / €9.48 million / ₹2.5 Crore /
+Rs / USD / $490K / A$ into (currency, whole units). Same story = share >=1 name word AND (overlap >=
+title_similarity 0.6 OR same amount+currency). Currencies never converted (converting merged M with
+nextesy in testing). Story keeps the direct publisher link over news.google.com, sources, also_in().
+SeenStories reads state table seen_stories (links + fingerprints); pipeline.run_pass returns Pass
+(collected, filtered, stories, new, already_seen). run does NOT call remember() yet: stories are marked
+seen only after the digest really delivers them. Live dry-run: 115 kept -> 32 stories, 0 wrong merges
+(nextesy 3x by design). tests/fixtures/funding_titles_2026-11-28.txt pins 46 titles -> 33. 112 tests.
 
 ## Next
-Session 13: dedupe in two layers. (1) same link within one run (gnews_funding regions); (2) same story
-across sources (inc42 + inc42_buzz, finsmes + eu_startups + Google News titles that differ in wording):
-normalised title / company + amount key. Remember seen keys in a state table so the next run never
-re-sends them. Target on the 2026-11-28 sample: 120 kept -> ~35.
-Then: Telegram digest of kept signals, cron schedule "17 2,7,11,15 * * *". Goal: schedule live before 2026-12-28.
+Session 14: Telegram digest of `Pass.new`: one entry per story (title, link, also_in sources, region),
+grouped or sorted by config, header with run counts; respect the 4096-char split already in telegram.py;
+long news.google.com links cost space, so decide whether to show the publisher link only. After a
+successful send, call SeenStories.remember() for each delivered story, then state.save().
+Then: cron schedule "17 2,7,11,15 * * *" in the private workflow. Goal: schedule live before 2026-12-28.
+Later: json_api adapter (8 sources skipped), tech-only classification (drops pet food, beverages).

@@ -83,8 +83,8 @@ def cmd_run(config_dir: str, state_dir: str, dry_run: bool) -> int:
         print(f"FAIL {error}", file=sys.stderr)
     print(summary)
     for story in result.new:
-        also = f"  (also: {', '.join(story.sources[1:])})" if len(story.sources) > 1 else ""
-        print(f"  [{story.sources[0]}] {story.signal.title}{also}\n    {story.signal.link}")
+        also = f"  (also: {', '.join(story.also_in())})" if story.also_in() else ""
+        print(f"  [{story.signal.source}] {story.signal.title}{also}\n    {story.signal.link}")
 
     # Until the digest is built (Session 14), run sends only this status message and does NOT
     # mark stories as seen: a story is remembered only once it was really delivered.

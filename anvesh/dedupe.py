@@ -91,6 +91,10 @@ class Story:
     sources: list[str] = field(default_factory=list)
     prints: list[Fingerprint] = field(default_factory=list)  # one per merged headline
 
+    def also_in(self) -> list[str]:
+        """Sources other than the one whose headline and link are shown."""
+        return [name for name in self.sources if name != self.signal.source]
+
     def matches(self, other: Fingerprint, settings: DedupeSettings) -> bool:
         return any(same_story(p, other, settings) for p in self.prints)
 

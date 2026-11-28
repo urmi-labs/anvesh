@@ -57,6 +57,8 @@ def test_same_story_across_sources_merges_and_prefers_direct_link():
     assert len(stories) == 1
     assert stories[0].sources == ["gnews", "techcrunch", "finsmes"]
     assert stories[0].signal.link == "https://techcrunch.com/lute"
+    assert stories[0].signal.source == "techcrunch"
+    assert stories[0].also_in() == ["gnews", "finsmes"]
 
 
 def test_shared_amount_without_shared_name_is_not_merged():
